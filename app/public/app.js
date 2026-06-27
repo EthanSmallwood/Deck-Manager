@@ -1,0 +1,622 @@
+const state = {
+  decks: [],
+  selectedId: "",
+  resolved: null,
+};
+
+const el = {
+  cardCount: document.querySelector("#cardCount"),
+  search: document.querySelector("#search"),
+  gameFilter: document.querySelector("#gameFilter"),
+  deckList: document.querySelector("#deckList"),
+  deckTitle: document.querySelector("#deckTitle"),
+  deckMeta: document.querySelector("#deckMeta"),
+  newDeckBtn: document.querySelector("#newDeckBtn"),
+  saveDeckBtn: document.querySelector("#saveDeckBtn"),
+  deleteDeckBtn: document.querySelector("#deleteDeckBtn"),
+  ttsBtn: document.querySelector("#ttsBtn"),
+  settingsBtn: document.querySelector("#settingsBtn"),
+  nameInput: document.querySelector("#nameInput"),
+  gameInput: document.querySelector("#gameInput"),
+  statusInput: document.querySelector("#statusInput"),
+  tagsInput: document.querySelector("#tagsInput"),
+  imageUrlInput: document.querySelector("#imageUrlInput"),
+  sourceUrlInput: document.querySelector("#sourceUrlInput"),
+  notesInput: document.querySelector("#notesInput"),
+  deckUrlInput: document.querySelector("#deckUrlInput"),
+  encoreBtn: document.querySelector("#encoreBtn"),
+  decklogBtn: document.querySelector("#decklogBtn"),
+  deckText: document.querySelector("#deckText"),
+  resolveBtn: document.querySelector("#resolveBtn"),
+  importStatus: document.querySelector("#importStatus"),
+  summaryStats: document.querySelector("#summaryStats"),
+  cardGrid: document.querySelector("#cardGrid"),
+  log: document.querySelector("#log"),
+  cardModal: document.querySelector("#cardModal"),
+  closeCardModal: document.querySelector("#closeCardModal"),
+  modalCardName: document.querySelector("#modalCardName"),
+  modalCardNumber: document.querySelector("#modalCardNumber"),
+  modalCardImageWrap: document.querySelector("#modalCardImageWrap"),
+  modalCardDetails: document.querySelector("#modalCardDetails"),
+  modalCardText: document.querySelector("#modalCardText"),
+  settingsModal: document.querySelector("#settingsModal"),
+  closeSettingsModal: document.querySelector("#closeSettingsModal"),
+  buildWeissDbBtn: document.querySelector("#buildWeissDbBtn"),
+  buildHololiveDbBtn: document.querySelector("#buildHololiveDbBtn"),
+  saveSettingsBtn: document.querySelector("#saveSettingsBtn"),
+  ttsJsonExportDirInput: document.querySelector("#ttsJsonExportDirInput"),
+  settingsLog: document.querySelector("#settingsLog"),
+};
+
+await boot();
+
+el.search.addEventListener("input", renderDeckList);
+el.gameFilter.addEventListener("change", renderDeckList);
+el.newDeckBtn.addEventListener("click", newDeck);
+el.saveDeckBtn.addEventListener("click", saveDeck);
+el.deleteDeckBtn.addEventListener("click", deleteSelectedDeck);
+el.resolveBtn.addEventListener("click", resolveDeckText);
+el.encoreBtn.addEventListener("click", fillFromEncore);
+el.decklogBtn.addEventListener("click", fillFromDecklog);
+el.ttsBtn.addEventListener("click", generateTts);
+el.settingsBtn.addEventListener("click", openSettingsModal);
+el.closeCardModal.addEventListener("click", closeCardModal);
+el.closeSettingsModal.addEventListener("click", closeSettingsModal);
+el.buildWeissDbBtn.addEventListener("click", buildWeissCardDb);
+el.buildHololiveDbBtn.addEventListener("click", buildHololiveCardDb);
+el.saveSettingsBtn.addEventListener("click", saveSettings);
+el.cardModal.addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-card]")) closeCardModal();
+});
+el.settingsModal.addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-settings]")) closeSettingsModal();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !el.cardModal.hidden) closeCardModal();
+  if (event.key === "Escape" && !el.settingsModal.hidden) closeSettingsModal();
+});
+
+async function boot() {
+  const health = await api("/api/health");
+  el.cardCount.textContent = `${health.weissCards.toLocaleString()} Weiss cards`;
+  await loadSettings();
+  await loadDecks();
+  if (state.decks[0]) selectDeck(state.decks[0].id);
+  else newDeck();
+}
+
+async function loadSettings() {
+  const result = await api("/api/settings");
+  el.ttsJsonExportDirInput.value = result.settings?.ttsJsonExportDir || "";
+}
+
+async function loadDecks() {
+  const result = await api("/api/decks");
+  state.decks = result.decks || [];
+  renderDeckList();
+}
+
+function renderDeckList() {
+  const search = el.search.value.trim().toLowerCase();
+  const game = el.gameFilter.value;
+  const decks = state.decks
+    .filter((deck) => game === "All Games" || deck.game === game)
+    .filter((deck) => !search || deckSearch(deck).includes(search))
+    .sort((a, b) => `${a.game} ${a.name}`.localeCompare(`${b.game} ${b.name}`));
+
+  el.deckList.innerHTML = decks.map((deck) => `
+    <article class="deck-item ${deck.id === state.selectedId ? "active" : ""}" data-id="${escapeAttr(deck.id)}">
+      ${deck.imageUrl ? `<img class="deck-thumb" src="${escapeAttr(deck.imageUrl)}" alt="">` : `<div class="deck-thumb"></div>`}
+      <div>
+        <div class="deck-name">${escapeHtml(deck.name)}</div>
+        <div class="deck-sub">${escapeHtml(deck.game)}<br>${escapeHtml(deck.status)} - ${escapeHtml(countSummary(deck))}</div>
+      </div>
+    </article>
+  `).join("");
+
+  for (const item of el.deckList.querySelectorAll(".deck-item")) {
+    item.addEventListener("click", () => selectDeck(item.dataset.id));
+  }
+}
+
+function selectDeck(id) {
+  state.selectedId = id;
+  state.resolved = null;
+  const deck = selectedDeck();
+  if (!deck) return;
+
+  el.nameInput.value = deck.name || "";
+  el.gameInput.value = deck.game || "Weiss Schwarz";
+  el.statusInput.value = deck.status || "Testing";
+  el.tagsInput.value = deck.tags || "";
+  el.imageUrlInput.value = deck.imageUrl || "";
+  el.sourceUrlInput.value = deck.sourceUrl || "";
+  el.notesInput.value = deck.notes || "";
+  el.deckText.value = "";
+
+  renderDeckList();
+  renderDeck(deck);
+  log("");
+}
+
+function newDeck() {
+  state.selectedId = "";
+  state.resolved = null;
+  el.nameInput.value = "";
+  el.gameInput.value = "Weiss Schwarz";
+  el.statusInput.value = "Testing";
+  el.tagsInput.value = "";
+  el.imageUrlInput.value = "";
+  el.sourceUrlInput.value = "";
+  el.notesInput.value = "";
+  el.deckText.value = "";
+  renderDeck(emptyDeck());
+  renderDeckList();
+  log("Paste a Weiss decklist, or fill it from Encore/Decklog, then import the decklist.");
+}
+
+async function resolveDeckText() {
+  setBusy(el.resolveBtn, true, "Resolving...");
+  try {
+    const result = await api("/api/weiss/resolve", { deckText: el.deckText.value });
+    state.resolved = result;
+    el.importStatus.textContent = result.missing.length
+      ? `${result.missing.length} missing cards`
+      : `Resolved ${result.totalCards} cards`;
+    renderDeck({ ...formDeck(), cards: result.cards });
+    if (result.missing.length) {
+      log(`Missing:\n${result.missing.map((item) => `line ${item.line}: ${item.number}`).join("\n")}`);
+    } else {
+      log(result.ambiguous.length ? `Imported with ${result.ambiguous.length} fallback(s).` : "Decklist imported cleanly.");
+    }
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    setBusy(el.resolveBtn, false, "Import Decklist");
+  }
+}
+
+async function fillFromEncore() {
+  setBusy(el.encoreBtn, true, "Filling...");
+  try {
+    const result = await api("/api/weiss/encore", { url: el.deckUrlInput.value });
+    if (!result.ok) throw new Error(result.error || "Encore import failed.");
+    el.deckText.value = result.deckText;
+    el.nameInput.value ||= result.deckName;
+    el.sourceUrlInput.value = el.deckUrlInput.value;
+    el.importStatus.textContent = `Filled ${result.cards} cards from Encore`;
+    log("Decklist box filled from Encore. Click Import Decklist when it looks right.");
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    setBusy(el.encoreBtn, false, "Fill Encore");
+  }
+}
+
+async function fillFromDecklog() {
+  setBusy(el.decklogBtn, true, "Filling...");
+  try {
+    const result = await api("/api/decklog/import", { url: el.deckUrlInput.value });
+    if (!result.ok) throw new Error(result.error || "Decklog import failed.");
+    if (result.detectedGame && result.detectedGame !== "Unknown") {
+      el.gameInput.value = result.detectedGame;
+    }
+    const isHololive = result.detectedGame === "Hololive OCG";
+    el.deckText.value = result.deckText;
+    el.nameInput.value ||= result.deckName;
+    el.sourceUrlInput.value = el.deckUrlInput.value;
+    if (isHololive && result.resolvedCards?.length) {
+      state.resolved = {
+        cards: result.resolvedCards,
+        totalCards: result.cards,
+        uniqueCards: result.uniqueCards,
+        missing: [],
+        ambiguous: [],
+      };
+      renderDeck({ ...formDeck(), cards: result.resolvedCards });
+    }
+    el.importStatus.textContent = `Filled ${result.cards} cards from Decklog`;
+    log(isHololive
+      ? "Hololive Decklog imported. Review the decklist box, then Save."
+      : "Decklist box filled from Decklog. Click Import Decklist when it looks right.");
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    setBusy(el.decklogBtn, false, "Fill Decklog");
+  }
+}
+
+async function saveDeck() {
+  const deck = formDeck();
+  if (!deck.name.trim()) {
+    log("Deck name is required.", true);
+    return;
+  }
+
+  if (state.resolved?.cards?.length) {
+    deck.cards = state.resolved.cards;
+  } else if (selectedDeck()?.cards?.length) {
+    deck.cards = selectedDeck().cards;
+  }
+
+  setBusy(el.saveDeckBtn, true, "Saving...");
+  try {
+    const result = await api("/api/decks", deck);
+    await loadDecks();
+    selectDeck(result.deck.id);
+    log("Saved.");
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    setBusy(el.saveDeckBtn, false, "Save");
+  }
+}
+
+async function deleteSelectedDeck() {
+  const deck = selectedDeck();
+  if (!deck) return;
+  if (!confirm(`Delete "${deck.name}"?`)) return;
+  await fetch(`/api/decks/${encodeURIComponent(deck.id)}`, { method: "DELETE" });
+  await loadDecks();
+  if (state.decks[0]) selectDeck(state.decks[0].id);
+  else newDeck();
+}
+
+async function generateTts() {
+  const deck = selectedDeck();
+  if (!deck) {
+    log("Save the deck before generating TTS output.", true);
+    return;
+  }
+
+  setBusy(el.ttsBtn, true, "Generating...");
+  try {
+    const result = await api("/api/tts/weiss", { deckId: deck.id });
+    if (!result.ok) throw new Error(result.error || "TTS generation failed.");
+    log([
+      `Generated ${result.cards} cards across ${result.sheets} sheet(s).`,
+      `Saved object: ${result.outputPath}`,
+      `Next steps: ${result.readmePath}`,
+      ...result.sheetUrls.map((url) => `Sheet: ${url}`),
+    ].join("\n"));
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    setBusy(el.ttsBtn, false, "TTS");
+  }
+}
+
+function renderDeck(deck) {
+  const counts = deckCounts(deck);
+  el.deckTitle.textContent = deck.name || "Unsaved deck";
+  el.deckMeta.textContent = `${deck.game || "Weiss Schwarz"} - ${deck.status || "Testing"} - ${countSummary(deck)}`;
+
+  const cards = [...(deck.cards || [])].sort((a, b) => Number(isClimax(a)) - Number(isClimax(b)) || a.number.localeCompare(b.number));
+  renderSummaryStats(deck, counts, cards.length);
+
+  el.cardGrid.innerHTML = cards.map((card, index) => `
+    <article class="card ${isClimax(card) ? "climax" : ""}" data-card-index="${index}" tabindex="0">
+      <div class="card-media">
+        ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+      </div>
+      <div class="card-body">
+        <div class="card-title">x${card.qty} ${escapeHtml(card.name)}</div>
+        <div class="card-meta">${escapeHtml(card.number)}<br>${escapeHtml(card.cardType || card.section || "")} ${escapeHtml(card.color || "")}</div>
+      </div>
+    </article>
+  `).join("");
+
+  for (const tile of el.cardGrid.querySelectorAll(".card")) {
+    tile.addEventListener("click", () => openCardModal(cards[Number(tile.dataset.cardIndex)]));
+    tile.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCardModal(cards[Number(tile.dataset.cardIndex)]);
+      }
+    });
+  }
+}
+
+function renderSummaryStats(deck, counts, uniqueCards) {
+  const stats = deck.game === "Hololive OCG"
+    ? [
+        ["Oshi", counts.oshi],
+        ["Main", counts.main],
+        ["Cheer", counts.cheer],
+        ["Unique", uniqueCards],
+      ]
+    : [
+        ["Total", counts.total],
+        ["Unique", uniqueCards],
+        ["Missing", state.resolved?.missing?.length || 0],
+        ["Fallbacks", state.resolved?.ambiguous?.length || 0],
+      ];
+
+  el.summaryStats.innerHTML = stats.map(([label, value]) => `
+    <div class="stat"><span>${Number(value || 0).toLocaleString()}</span><small>${escapeHtml(label)}</small></div>
+  `).join("");
+}
+
+function openCardModal(card) {
+  if (!card) return;
+
+  el.modalCardName.textContent = card.name || "Unknown card";
+  el.modalCardNumber.textContent = `x${card.qty || 1} ${card.number || ""}`;
+  el.modalCardImageWrap.classList.toggle("climax", isClimax(card));
+  el.modalCardImageWrap.innerHTML = card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : "No image";
+
+  const details = [
+    ["Type", card.cardType || card.section],
+    ["Color", card.color],
+    ["Level", card.level],
+    ["Cost", card.cost],
+    ["Power", card.power],
+    ["Soul", card.soul],
+    ["Trigger", card.trigger],
+    ["Rarity", card.rarity],
+    ["Bloom", card.bloomLevel],
+    ["HP", card.hp],
+    ["Baton Pass", card.batonPass],
+    ["Card Set", card.cardSet],
+    ["Tags", card.tags],
+  ].filter(([, value]) => String(value || "").trim());
+
+  el.modalCardDetails.innerHTML = details.map(([label, value]) => `
+    <dt>${escapeHtml(label)}</dt>
+    <dd>${energyHtml(value)}</dd>
+  `).join("") + (card.detailUrl ? `
+    <dt>Link</dt>
+    <dd><a href="${escapeAttr(card.detailUrl)}" target="_blank" rel="noopener noreferrer">Official Site</a></dd>
+  ` : "");
+
+  el.modalCardText.innerHTML = cardRulesHtml(card);
+  el.cardModal.hidden = false;
+}
+
+function closeCardModal() {
+  el.cardModal.hidden = true;
+}
+
+function cardRulesHtml(card) {
+  const lines = [];
+
+  if (card.text) lines.push(card.text);
+
+  for (const keyword of card.keywords || []) {
+    const header = [keyword.type, keyword.name].filter(Boolean).join(": ");
+    lines.push([header, keyword.text].filter(Boolean).join("\n"));
+  }
+
+  for (const art of card.arts || []) {
+    const cost = Array.isArray(art.cost) && art.cost.length ? `[${art.cost.map(normalizeEnergyToken).join(" ")}] ` : "";
+    const damage = art.damage ? ` ${art.damage}` : "";
+    const special = art.special ? ` ${normalizeEnergyText(art.special)}` : "";
+    const header = `${cost}${art.name || "Art"}${damage}${special}`.trim();
+    lines.push([header, art.text].filter(Boolean).join("\n"));
+  }
+
+  return energyHtml(lines.filter(Boolean).join("\n\n") || "No card text stored.");
+}
+
+function energyHtml(value) {
+  return escapeHtml(normalizeEnergyText(value)).replace(/\b([RGBYPW])(\+50)?\b/g, (_, code, bonus) =>
+    `<span class="energy energy-${code}">${code}${bonus || ""}</span>`
+  );
+}
+
+function normalizeEnergyText(value) {
+  return String(value || "")
+    .replaceAll("赤", "R")
+    .replaceAll("青", "B")
+    .replaceAll("緑", "G")
+    .replaceAll("黄", "Y")
+    .replaceAll("紫", "P")
+    .replaceAll("白", "W")
+    .replaceAll("◇", "W");
+}
+
+function normalizeEnergyToken(value) {
+  return normalizeEnergyText(value).trim();
+}
+
+function openSettingsModal() {
+  el.settingsLog.textContent = "";
+  el.settingsModal.hidden = false;
+}
+
+function closeSettingsModal() {
+  el.settingsModal.hidden = true;
+}
+
+async function buildWeissCardDb() {
+  setBusy(el.buildWeissDbBtn, true, "Building...");
+  el.settingsLog.textContent = "Building Weiss card database. This can take a few minutes...";
+
+  try {
+    const result = await api("/api/weiss/build-db", {});
+    renderBuildJob(result.job);
+
+    while (true) {
+      await sleep(1500);
+      const status = await api("/api/weiss/build-db/status");
+      const job = status.job;
+      renderBuildJob(job);
+
+      if (!job || job.status !== "running") {
+        if (job?.status === "complete") {
+          el.cardCount.textContent = `${Number(job.weissCards || 0).toLocaleString()} Weiss cards`;
+        }
+        break;
+      }
+    }
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.buildWeissDbBtn, false, "Build Weiss Card DB");
+  }
+}
+
+async function saveSettings() {
+  setBusy(el.saveSettingsBtn, true, "Saving...");
+  try {
+    const result = await api("/api/settings", {
+      ttsJsonExportDir: el.ttsJsonExportDirInput.value.trim(),
+    });
+    el.ttsJsonExportDirInput.value = result.settings?.ttsJsonExportDir || "";
+    el.settingsLog.textContent = "Settings saved.";
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.saveSettingsBtn, false, "Save Settings");
+  }
+}
+
+async function buildHololiveCardDb() {
+  setBusy(el.buildHololiveDbBtn, true, "Building...");
+  el.settingsLog.textContent = "Building Hololive card database. This can take a few minutes...";
+
+  try {
+    const result = await api("/api/hololive/build-db", {});
+    renderBuildJob(result.job, "hololive");
+
+    while (true) {
+      await sleep(1500);
+      const status = await api("/api/hololive/build-db/status");
+      const job = status.job;
+      renderBuildJob(job, "hololive");
+
+      if (!job || job.status !== "running") break;
+    }
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.buildHololiveDbBtn, false, "Build Hololive Card DB");
+  }
+}
+
+function renderBuildJob(job, game = "weiss") {
+  if (!job) {
+    el.settingsLog.textContent = "No build has started.";
+    return;
+  }
+
+  const countKey = game === "hololive" ? "hololiveCards" : "weissCards";
+  const gameName = game === "hololive" ? "Hololive" : "Weiss";
+  const heading = job.status === "complete"
+    ? `${gameName} build complete: ${Number(job[countKey] || 0).toLocaleString()} cards.`
+    : job.status === "failed"
+      ? `${gameName} build failed: ${job.error || "Unknown error"}`
+      : `${gameName} build running...`;
+
+  el.settingsLog.textContent = [heading, "", job.log || ""].join("\n").trim();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formDeck() {
+  return {
+    id: state.selectedId,
+    name: el.nameInput.value.trim(),
+    game: el.gameInput.value,
+    status: el.statusInput.value,
+    tags: el.tagsInput.value.trim(),
+    imageUrl: el.imageUrlInput.value.trim(),
+    sourceUrl: el.sourceUrlInput.value.trim(),
+    notes: el.notesInput.value.trim(),
+    cards: selectedDeck()?.cards || [],
+  };
+}
+
+function selectedDeck() {
+  return state.decks.find((deck) => deck.id === state.selectedId);
+}
+
+function emptyDeck() {
+  return { name: "", game: "Weiss Schwarz", status: "Testing", cards: [] };
+}
+
+function cardTotal(deck) {
+  return (deck.cards || []).reduce((sum, card) => sum + Number(card.qty || 1), 0);
+}
+
+function deckCounts(deck) {
+  const counts = {
+    total: 0,
+    main: 0,
+    cheer: 0,
+    oshi: 0,
+    climax: 0,
+    displayTotal: 0,
+  };
+
+  for (const card of deck.cards || []) {
+    const qty = Number(card.qty || 1);
+    counts.total += qty;
+
+    const section = String(card.section || "").toLowerCase();
+    if (section === "oshi") counts.oshi += qty;
+    else if (section === "cheer") counts.cheer += qty;
+    else if (isClimax(card)) counts.climax += qty;
+    else counts.main += qty;
+  }
+
+  counts.displayTotal = deck.game === "Hololive OCG" ? counts.main : counts.total;
+  return counts;
+}
+
+function countSummary(deck) {
+  const counts = deckCounts(deck);
+  if (deck.game === "Hololive OCG") {
+    return `Main ${counts.main} / Cheer ${counts.cheer} / Oshi ${counts.oshi}`;
+  }
+  return `${counts.total} cards`;
+}
+
+function isClimax(card) {
+  return String(card.cardType || card.section || "").toLowerCase().includes("climax");
+}
+
+function deckSearch(deck) {
+  return [
+    deck.name,
+    deck.game,
+    deck.status,
+    deck.tags,
+    deck.notes,
+    ...(deck.cards || []).flatMap((card) => [card.number, card.name, card.cardType, card.color]),
+  ].join(" ").toLowerCase();
+}
+
+async function api(path, body) {
+  const response = await fetch(path, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "content-type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+  return result;
+}
+
+function setBusy(button, busy, text) {
+  button.disabled = busy;
+  button.textContent = text;
+}
+
+function log(message, bad = false) {
+  el.log.textContent = message || "";
+  el.log.classList.toggle("bad", bad);
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replaceAll('"', "&quot;");
+}
