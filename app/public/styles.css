@@ -322,6 +322,7 @@ label {
 }
 
 .card-dialog,
+.builder-dialog,
 .settings-dialog {
   position: relative;
   z-index: 1;
@@ -332,6 +333,10 @@ label {
   border-radius: 8px;
   background: var(--panel);
   box-shadow: 0 22px 70px rgb(0 0 0 / 0.45);
+}
+
+.builder-dialog {
+  width: min(1280px, 100%);
 }
 
 .settings-dialog {
@@ -484,6 +489,125 @@ label {
   white-space: pre-wrap;
 }
 
+.builder-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 150px auto;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 14px 16px;
+}
+
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+.builder-layout h4 {
+  margin: 0 0 10px;
+}
+
+.builder-results,
+.builder-deck {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.builder-card,
+.builder-deck-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 8px;
+}
+
+.builder-card {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+}
+
+.builder-card img {
+  width: 52px;
+  height: 72px;
+  object-fit: contain;
+  background: #111;
+  border-radius: 4px;
+}
+
+.builder-card strong,
+.builder-deck-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.builder-card span,
+.builder-deck-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.builder-deck-row {
+  grid-template-columns: 44px minmax(0, 1fr) 36px 36px;
+}
+
+.builder-deck-row button {
+  min-height: 32px;
+  padding: 0;
+}
+
+.builder-validation {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+.builder-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.builder-counts span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.builder-validation ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.builder-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 14px 16px;
+}
+
+.builder-note {
+  color: var(--muted);
+}
+
+.ok {
+  color: #65d891;
+}
+
 @media (max-width: 980px) {
   .shell,
   .editor {
@@ -514,5 +638,10 @@ label {
   .settings-body {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .builder-toolbar,
+  .builder-layout {
+    grid-template-columns: 1fr;
   }
 }

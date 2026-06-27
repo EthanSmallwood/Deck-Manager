@@ -36,6 +36,7 @@
           <button id="newDeckBtn">New</button>
           <button id="saveDeckBtn">Save</button>
           <button id="deleteDeckBtn">Delete</button>
+          <button id="builderBtn">Builder</button>
           <button id="ttsBtn">TTS</button>
           <button id="settingsBtn">Settings</button>
         </div>
@@ -153,6 +154,39 @@
         <button id="saveSettingsBtn">Save Settings</button>
       </section>
       <pre id="settingsLog" class="settings-log"></pre>
+    </article>
+  </div>
+
+  <div id="builderModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-builder></div>
+    <article class="builder-dialog">
+      <header class="card-dialog-header">
+        <div>
+          <h3>Weiss Deck Builder</h3>
+          <p>Neo-Standard first pass: 50 cards, max 8 climaxes, max 4 copies, one title.</p>
+        </div>
+        <button id="closeBuilderModal" aria-label="Close builder">Close</button>
+      </header>
+      <section class="builder-toolbar">
+        <input id="builderSearchInput" placeholder="Search by name, number, type, text">
+        <input id="builderTitleInput" placeholder="Title code, e.g. LRC">
+        <button id="builderSearchBtn">Search</button>
+      </section>
+      <section class="builder-layout">
+        <div>
+          <h4>Cards</h4>
+          <div id="builderResults" class="builder-results"></div>
+        </div>
+        <div>
+          <h4>Deck</h4>
+          <div id="builderValidation" class="builder-validation"></div>
+          <div id="builderDeckList" class="builder-deck"></div>
+        </div>
+      </section>
+      <footer class="builder-footer">
+        <button id="builderClearBtn">Clear</button>
+        <button id="builderApplyBtn">Use This Deck</button>
+      </footer>
     </article>
   </div>
 

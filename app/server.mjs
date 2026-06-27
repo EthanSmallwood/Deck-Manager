@@ -77,6 +77,28 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "GET" && url.pathname === "/api/weiss/search") {
+      const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+      const title = String(url.searchParams.get("title") || "").trim().toUpperCase();
+      const cards = loadWeissDatabase().cards
+        .filter((card) => !title || titleCode(card.number) === title)
+        .filter((card) => {
+          if (!q) return true;
+          return [
+            card.number,
+            card.name,
+            card.cardType,
+            card.color,
+            card.level,
+            card.rarity,
+            card.text,
+          ].join(" ").toLowerCase().includes(q);
+        })
+        .slice(0, 120);
+      sendJson(response, 200, { ok: true, cards });
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/weiss/encore") {
       const body = await readJsonBody(request);
       const result = await importEncoreDeck(body.url || body.deckId || "");
@@ -229,6 +251,10 @@ async function readJsonBody(request) {
 function portArg() {
   const index = process.argv.indexOf("--port");
   return index >= 0 ? process.argv[index + 1] : "";
+}
+
+function titleCode(number) {
+  return String(number || "").split("/")[0].toUpperCase();
 }
 
 function startWeissCardDatabaseBuild() {

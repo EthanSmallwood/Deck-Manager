@@ -2,6 +2,8 @@ const state = {
   decks: [],
   selectedId: "",
   resolved: null,
+  builderCards: [],
+  builderResults: [],
 };
 
 const el = {
@@ -14,6 +16,7 @@ const el = {
   newDeckBtn: document.querySelector("#newDeckBtn"),
   saveDeckBtn: document.querySelector("#saveDeckBtn"),
   deleteDeckBtn: document.querySelector("#deleteDeckBtn"),
+  builderBtn: document.querySelector("#builderBtn"),
   ttsBtn: document.querySelector("#ttsBtn"),
   settingsBtn: document.querySelector("#settingsBtn"),
   nameInput: document.querySelector("#nameInput"),
@@ -46,6 +49,16 @@ const el = {
   saveSettingsBtn: document.querySelector("#saveSettingsBtn"),
   ttsJsonExportDirInput: document.querySelector("#ttsJsonExportDirInput"),
   settingsLog: document.querySelector("#settingsLog"),
+  builderModal: document.querySelector("#builderModal"),
+  closeBuilderModal: document.querySelector("#closeBuilderModal"),
+  builderSearchInput: document.querySelector("#builderSearchInput"),
+  builderTitleInput: document.querySelector("#builderTitleInput"),
+  builderSearchBtn: document.querySelector("#builderSearchBtn"),
+  builderResults: document.querySelector("#builderResults"),
+  builderValidation: document.querySelector("#builderValidation"),
+  builderDeckList: document.querySelector("#builderDeckList"),
+  builderClearBtn: document.querySelector("#builderClearBtn"),
+  builderApplyBtn: document.querySelector("#builderApplyBtn"),
 };
 
 await boot();
@@ -55,6 +68,7 @@ el.gameFilter.addEventListener("change", renderDeckList);
 el.newDeckBtn.addEventListener("click", newDeck);
 el.saveDeckBtn.addEventListener("click", saveDeck);
 el.deleteDeckBtn.addEventListener("click", deleteSelectedDeck);
+el.builderBtn.addEventListener("click", openBuilderModal);
 el.resolveBtn.addEventListener("click", resolveDeckText);
 el.encoreBtn.addEventListener("click", fillFromEncore);
 el.decklogBtn.addEventListener("click", fillFromDecklog);
@@ -65,15 +79,26 @@ el.closeSettingsModal.addEventListener("click", closeSettingsModal);
 el.buildWeissDbBtn.addEventListener("click", buildWeissCardDb);
 el.buildHololiveDbBtn.addEventListener("click", buildHololiveCardDb);
 el.saveSettingsBtn.addEventListener("click", saveSettings);
+el.closeBuilderModal.addEventListener("click", closeBuilderModal);
+el.builderSearchBtn.addEventListener("click", searchBuilderCards);
+el.builderSearchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") searchBuilderCards();
+});
+el.builderClearBtn.addEventListener("click", clearBuilderDeck);
+el.builderApplyBtn.addEventListener("click", applyBuilderDeck);
 el.cardModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-card]")) closeCardModal();
 });
 el.settingsModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-settings]")) closeSettingsModal();
 });
+el.builderModal.addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-builder]")) closeBuilderModal();
+});
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !el.cardModal.hidden) closeCardModal();
   if (event.key === "Escape" && !el.settingsModal.hidden) closeSettingsModal();
+  if (event.key === "Escape" && !el.builderModal.hidden) closeBuilderModal();
 });
 
 async function boot() {
@@ -509,6 +534,177 @@ function renderBuildJob(job, game = "weiss") {
       : `${gameName} build running...`;
 
   el.settingsLog.textContent = [heading, "", job.log || ""].join("\n").trim();
+}
+
+function openBuilderModal() {
+  el.gameInput.value = "Weiss Schwarz";
+  const current = state.resolved?.cards?.length ? state.resolved.cards : selectedDeck()?.cards || [];
+  state.builderCards = current
+    .filter((card) => card.game === "Weiss Schwarz" || !card.game)
+    .map((card) => ({ ...card, qty: Number(card.qty || 1) }));
+  el.builderTitleInput.value = builderTitleCode() || "";
+  el.builderModal.hidden = false;
+  renderBuilderDeck();
+  if (!state.builderResults.length) searchBuilderCards();
+}
+
+function closeBuilderModal() {
+  el.builderModal.hidden = true;
+}
+
+async function searchBuilderCards() {
+  setBusy(el.builderSearchBtn, true, "Searching...");
+  try {
+    const params = new URLSearchParams({
+      q: el.builderSearchInput.value.trim(),
+      title: el.builderTitleInput.value.trim(),
+    });
+    const result = await api(`/api/weiss/search?${params.toString()}`);
+    state.builderResults = result.cards || [];
+    renderBuilderResults();
+  } catch (error) {
+    el.builderResults.innerHTML = `<div class="builder-note bad">${escapeHtml(error.message)}</div>`;
+  } finally {
+    setBusy(el.builderSearchBtn, false, "Search");
+  }
+}
+
+function renderBuilderResults() {
+  el.builderResults.innerHTML = state.builderResults.map((card, index) => `
+    <article class="builder-card">
+      ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+      <div>
+        <strong>${escapeHtml(card.name)}</strong>
+        <span>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")} ${escapeHtml(card.color || "")}</span>
+      </div>
+      <button data-builder-add="${index}">Add</button>
+    </article>
+  `).join("") || `<div class="builder-note">No cards found.</div>`;
+
+  for (const button of el.builderResults.querySelectorAll("[data-builder-add]")) {
+    button.addEventListener("click", () => addBuilderCard(state.builderResults[Number(button.dataset.builderAdd)]));
+  }
+}
+
+function addBuilderCard(card) {
+  if (!card) return;
+  const existing = state.builderCards.find((item) => item.number === card.number);
+  if (existing) existing.qty += 1;
+  else state.builderCards.push(normalizeBuilderCard(card));
+
+  if (!el.builderTitleInput.value.trim()) el.builderTitleInput.value = titleCode(card.number);
+  renderBuilderDeck();
+}
+
+function changeBuilderQty(number, delta) {
+  const card = state.builderCards.find((item) => item.number === number);
+  if (!card) return;
+  card.qty += delta;
+  if (card.qty <= 0) state.builderCards = state.builderCards.filter((item) => item.number !== number);
+  renderBuilderDeck();
+}
+
+function renderBuilderDeck() {
+  const sorted = [...state.builderCards].sort((a, b) => Number(isClimax(a)) - Number(isClimax(b)) || a.number.localeCompare(b.number));
+  el.builderDeckList.innerHTML = sorted.map((card) => `
+    <article class="builder-deck-row">
+      <span>x${card.qty}</span>
+      <div>
+        <strong>${escapeHtml(card.name)}</strong>
+        <small>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")}</small>
+      </div>
+      <button data-builder-minus="${escapeAttr(card.number)}">-</button>
+      <button data-builder-plus="${escapeAttr(card.number)}">+</button>
+    </article>
+  `).join("") || `<div class="builder-note">No cards in deck yet.</div>`;
+
+  for (const button of el.builderDeckList.querySelectorAll("[data-builder-minus]")) {
+    button.addEventListener("click", () => changeBuilderQty(button.dataset.builderMinus, -1));
+  }
+  for (const button of el.builderDeckList.querySelectorAll("[data-builder-plus]")) {
+    button.addEventListener("click", () => changeBuilderQty(button.dataset.builderPlus, 1));
+  }
+
+  renderBuilderValidation();
+}
+
+function renderBuilderValidation() {
+  const v = validateWeissNeoStandard(state.builderCards);
+  el.builderValidation.innerHTML = `
+    <div class="builder-counts">
+      <span class="${v.total === 50 ? "ok" : "bad"}">Total ${v.total}/50</span>
+      <span class="${v.climax <= 8 ? "ok" : "bad"}">Climax ${v.climax}/8</span>
+      <span class="${v.titleOk ? "ok" : "bad"}">Title ${escapeHtml(v.title || "-")}</span>
+    </div>
+    ${v.issues.length ? `<ul>${v.issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>` : `<div class="ok">Neo-Standard checks pass.</div>`}
+  `;
+}
+
+function validateWeissNeoStandard(cards) {
+  const total = cards.reduce((sum, card) => sum + Number(card.qty || 0), 0);
+  const climax = cards.filter(isClimax).reduce((sum, card) => sum + Number(card.qty || 0), 0);
+  const titles = [...new Set(cards.map((card) => titleCode(card.number)).filter(Boolean))];
+  const issues = [];
+
+  if (total !== 50) issues.push("Deck must contain exactly 50 cards.");
+  if (climax > 8) issues.push("Deck may contain at most 8 climax cards.");
+  if (titles.length > 1) issues.push("Neo-Standard decks may only include cards from one title.");
+
+  for (const card of cards) {
+    if (Number(card.qty || 0) > 4) issues.push(`${card.number} has ${card.qty} copies. Maximum is 4.`);
+  }
+
+  return { total, climax, title: titles[0] || "", titleOk: titles.length <= 1, issues };
+}
+
+function clearBuilderDeck() {
+  if (!confirm("Clear builder deck?")) return;
+  state.builderCards = [];
+  renderBuilderDeck();
+}
+
+function applyBuilderDeck() {
+  const cards = state.builderCards.map((card) => ({ ...card }));
+  state.resolved = {
+    cards,
+    totalCards: cards.reduce((sum, card) => sum + Number(card.qty || 0), 0),
+    uniqueCards: cards.length,
+    missing: [],
+    ambiguous: [],
+  };
+  el.deckText.value = cards.map((card) => `${card.number}\t${card.qty}\t${card.name}`).join("\n");
+  renderDeck({ ...formDeck(), cards });
+  closeBuilderModal();
+  log("Builder deck applied. Save the deck to keep it.");
+}
+
+function normalizeBuilderCard(card) {
+  return {
+    qty: 1,
+    number: card.number,
+    name: card.name,
+    game: "Weiss Schwarz",
+    section: isClimax(card) ? "Climax" : card.cardType || "Main",
+    cardType: card.cardType || "",
+    color: card.color || "",
+    level: card.level || "",
+    cost: card.cost || "",
+    power: card.power || "",
+    soul: card.soul || "",
+    trigger: card.trigger || "",
+    rarity: card.rarity || "",
+    text: card.text || "",
+    imageUrl: card.imageUrl || "",
+    detailUrl: card.detailUrl || "",
+  };
+}
+
+function builderTitleCode() {
+  return [...new Set(state.builderCards.map((card) => titleCode(card.number)).filter(Boolean))][0] || "";
+}
+
+function titleCode(number) {
+  return String(number || "").split("/")[0].toUpperCase();
 }
 
 function sleep(ms) {
