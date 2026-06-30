@@ -163,22 +163,93 @@
       <header class="card-dialog-header">
         <div>
           <h3>Weiss Deck Builder</h3>
-          <p>Neo-Standard first pass: 50 cards, max 8 climaxes, max 4 copies, one title.</p>
+          <p>Neo-Standard: choose a series, build to 50 cards, max 8 climaxes, max 4 copies.</p>
         </div>
         <button id="closeBuilderModal" aria-label="Close builder">Close</button>
       </header>
       <section class="builder-toolbar">
-        <input id="builderSearchInput" placeholder="Search by name, number, type, text">
-        <input id="builderTitleInput" placeholder="Title code, e.g. LRC">
+        <label class="builder-series-field">
+          Series
+          <select id="builderSeriesSelect" hidden></select>
+          <button id="builderSeriesButton" class="builder-series-button" type="button">All series</button>
+          <div id="builderSeriesMenu" class="builder-series-menu" hidden></div>
+        </label>
+        <label>
+          Search
+          <input id="builderSearchInput" placeholder="Name, card number, type, color, text">
+        </label>
         <button id="builderSearchBtn">Search</button>
       </section>
       <section class="builder-layout">
-        <div>
-          <h4>Cards</h4>
+        <aside class="builder-filters">
+          <h4>Filters</h4>
+          <label>
+            Card Type
+            <select id="builderTypeFilter">
+              <option value="">All</option>
+              <option>Character</option>
+              <option>Event</option>
+              <option>Climax</option>
+            </select>
+          </label>
+          <label>
+            Color
+            <select id="builderColorFilter">
+              <option value="">All</option>
+              <option value="yellow">Yellow</option>
+              <option value="green">Green</option>
+              <option value="red">Red</option>
+              <option value="blue">Blue</option>
+            </select>
+          </label>
+          <div class="builder-filter-range">
+            <span>Level</span>
+            <input id="builderLevelMin" type="number" min="0" max="3" placeholder="Min">
+            <input id="builderLevelMax" type="number" min="0" max="3" placeholder="Max">
+          </div>
+          <div class="builder-filter-range">
+            <span>Cost</span>
+            <input id="builderCostMin" type="number" min="0" placeholder="Min">
+            <input id="builderCostMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range">
+            <span>Power</span>
+            <input id="builderPowerMin" type="number" min="0" step="500" placeholder="Min">
+            <input id="builderPowerMax" type="number" min="0" step="500" placeholder="Max">
+          </div>
+          <div class="builder-filter-range">
+            <span>Soul</span>
+            <input id="builderSoulMin" type="number" min="0" placeholder="Min">
+            <input id="builderSoulMax" type="number" min="0" placeholder="Max">
+          </div>
+          <label>
+            Trigger
+            <select id="builderTriggerFilter">
+              <option value="">All</option>
+              <option value="soul">Soul</option>
+              <option value="standby">Standby</option>
+              <option value="choice">Choice</option>
+              <option value="treasure">Treasure</option>
+              <option value="gate">Gate</option>
+              <option value="stock">Stock</option>
+              <option value="shot">Shot</option>
+              <option value="bounce">Bounce</option>
+            </select>
+          </label>
+          <button id="builderClearFiltersBtn" type="button">Clear search conditions</button>
+        </aside>
+        <div class="builder-panel builder-card-panel">
+          <div class="builder-panel-head">
+            <h4>Cards</h4>
+            <span id="builderResultCount"></span>
+          </div>
           <div id="builderResults" class="builder-results"></div>
         </div>
-        <div>
-          <h4>Deck</h4>
+        <div class="builder-panel builder-deck-panel">
+          <div class="builder-panel-head">
+            <h4>Deck</h4>
+            <span id="builderDeckCount"></span>
+          </div>
           <div id="builderValidation" class="builder-validation"></div>
           <div id="builderDeckList" class="builder-deck"></div>
         </div>

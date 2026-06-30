@@ -15,6 +15,7 @@ const PORT = Number(portArg() || process.env.PORT || 17777);
 let currentPort = PORT;
 let weissBuildJob = null;
 let hololiveBuildJob = null;
+let weissSeriesCache = null;
 
 const publicRoot = resolve("app/public");
 const contentTypes = new Map([
@@ -79,9 +80,24 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/api/weiss/search") {
       const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
-      const title = String(url.searchParams.get("title") || "").trim().toUpperCase();
+      const title = String(url.searchParams.get("title") || "").trim();
+      const titleCodes = weissTitleCodes(title);
+      const filters = {
+        type: String(url.searchParams.get("type") || "").trim().toLowerCase(),
+        color: String(url.searchParams.get("color") || "").trim().toLowerCase(),
+        trigger: String(url.searchParams.get("trigger") || "").trim().toLowerCase(),
+        levelMin: numberParam(url, "levelMin"),
+        levelMax: numberParam(url, "levelMax"),
+        costMin: numberParam(url, "costMin"),
+        costMax: numberParam(url, "costMax"),
+        powerMin: numberParam(url, "powerMin"),
+        powerMax: numberParam(url, "powerMax"),
+        soulMin: numberParam(url, "soulMin"),
+        soulMax: numberParam(url, "soulMax"),
+      };
       const cards = loadWeissDatabase().cards
-        .filter((card) => !title || titleCode(card.number) === title)
+        .filter((card) => !titleCodes.length || titleCodes.includes(titleCode(card.number)))
+        .filter((card) => matchesWeissFilters(card, filters))
         .filter((card) => {
           if (!q) return true;
           return [
@@ -96,6 +112,11 @@ const server = createServer(async (request, response) => {
         })
         .slice(0, 120);
       sendJson(response, 200, { ok: true, cards });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/weiss/series") {
+      sendJson(response, 200, { ok: true, series: listWeissSeries() });
       return;
     }
 
@@ -253,8 +274,110 @@ function portArg() {
   return index >= 0 ? process.argv[index + 1] : "";
 }
 
+function numberParam(url, key) {
+  const value = String(url.searchParams.get(key) || "").trim();
+  if (!value) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function matchesWeissFilters(card, filters) {
+  if (filters.type && String(card.cardType || "").toLowerCase() !== filters.type) return false;
+  if (filters.color && String(card.color || "").toLowerCase() !== filters.color) return false;
+  if (filters.trigger && !String(card.trigger || "").toLowerCase().includes(filters.trigger)) return false;
+  if (!inRange(card.level, filters.levelMin, filters.levelMax)) return false;
+  if (!inRange(card.cost, filters.costMin, filters.costMax)) return false;
+  if (!inRange(card.power, filters.powerMin, filters.powerMax)) return false;
+  if (!inRange(card.soul, filters.soulMin, filters.soulMax, soulValue)) return false;
+  return true;
+}
+
+function inRange(value, min, max, normalize = numericValue) {
+  if (min === null && max === null) return true;
+  const number = normalize(value);
+  if (!Number.isFinite(number)) return false;
+  if (min !== null && number < min) return false;
+  if (max !== null && number > max) return false;
+  return true;
+}
+
+function numericValue(value) {
+  return Number(String(value || "").replace(/[^\d.-]/g, ""));
+}
+
+function soulValue(value) {
+  const text = String(value || "");
+  const icons = text.match(/soul/gi);
+  if (icons) return icons.length;
+  if (text.trim() === "-" || !text.trim()) return 0;
+  return numericValue(text);
+}
+
 function titleCode(number) {
   return String(number || "").split("/")[0].toUpperCase();
+}
+
+function listWeissSeries() {
+  const codeCounts = new Map();
+
+  for (const card of loadWeissDatabase().cards) {
+    const code = titleCode(card.number);
+    if (!code) continue;
+    const current = codeCounts.get(code) || { cards: 0, characterCards: 0, climaxCards: 0 };
+    current.cards += 1;
+    if (String(card.cardType || "").toLowerCase() === "climax") current.climaxCards += 1;
+    if (String(card.cardType || "").toLowerCase() === "character") current.characterCards += 1;
+    codeCounts.set(code, current);
+  }
+
+  const official = loadWeissSeriesMap()
+    .map((series) => {
+      const counts = series.codes.reduce((totals, code) => {
+        const count = codeCounts.get(code) || {};
+        totals.cards += count.cards || 0;
+        totals.characterCards += count.characterCards || 0;
+        totals.climaxCards += count.climaxCards || 0;
+        return totals;
+      }, { cards: 0, characterCards: 0, climaxCards: 0 });
+
+      return { ...series, ...counts };
+    })
+    .filter((series) => series.cards > 0);
+
+  const mappedCodes = new Set(official.flatMap((series) => series.codes));
+  const orphanCodes = [...codeCounts.entries()]
+    .filter(([code]) => !mappedCodes.has(code))
+    .map(([code, counts]) => ({ id: code, code, name: code, side: "", codes: [code], ...counts }));
+
+  return [...official, ...orphanCodes]
+    .sort((a, b) => a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id)));
+}
+
+function weissTitleCodes(title) {
+  if (!title) return [];
+  const normalized = String(title).trim();
+  const series = loadWeissSeriesMap().find((item) => item.id === normalized || item.codes.includes(normalized.toUpperCase()));
+  return series?.codes || [normalized.toUpperCase()];
+}
+
+function loadWeissSeriesMap() {
+  if (weissSeriesCache) return weissSeriesCache;
+
+  try {
+    const series = JSON.parse(readFileSync("data/cards/weiss-series.json", "utf8"));
+    weissSeriesCache = Array.isArray(series)
+      ? series.map((item) => ({
+        id: String(item.id || ""),
+        name: String(item.name || item.id || ""),
+        side: String(item.side || ""),
+        codes: Array.isArray(item.codes) ? item.codes.map((code) => String(code).toUpperCase()) : [],
+      })).filter((item) => item.id && item.name && item.codes.length)
+      : [];
+  } catch {
+    weissSeriesCache = [];
+  }
+
+  return weissSeriesCache;
 }
 
 function startWeissCardDatabaseBuild() {

@@ -1,0 +1,773 @@
+[
+  {
+    "id": "137",
+    "name": "-NISEKOI-False Love",
+    "side": "1",
+    "codes": [
+      "NK"
+    ]
+  },
+  {
+    "id": "175",
+    "name": "【OSHI NO KO】",
+    "side": "2",
+    "codes": [
+      "OSK"
+    ]
+  },
+  {
+    "id": "119",
+    "name": "Accel・World",
+    "side": "2",
+    "codes": [
+      "AW",
+      "Gaw"
+    ]
+  },
+  {
+    "id": "147",
+    "name": "Adventure Time",
+    "side": "1",
+    "codes": [
+      "AT"
+    ]
+  },
+  {
+    "id": "136",
+    "name": "Angel Beats! Re:Edit",
+    "side": "1",
+    "codes": [
+      "AB"
+    ]
+  },
+  {
+    "id": "166",
+    "name": "Arifureta: From Commonplace to World’s Strongest",
+    "side": "2",
+    "codes": [
+      "ARI"
+    ]
+  },
+  {
+    "id": "115",
+    "name": "Attack on Titan",
+    "side": "2",
+    "codes": [
+      "AOT"
+    ]
+  },
+  {
+    "id": "164",
+    "name": "Avatar: The Last Airbender",
+    "side": "1",
+    "codes": [
+      "ATLA"
+    ]
+  },
+  {
+    "id": "174",
+    "name": "Ayakashi Triangle",
+    "side": "1",
+    "codes": [
+      "AYT"
+    ]
+  },
+  {
+    "id": "165",
+    "name": "Azur Lane",
+    "side": "2",
+    "codes": [
+      "AZL"
+    ]
+  },
+  {
+    "id": "142",
+    "name": "BanG Dream!",
+    "side": "1",
+    "codes": [
+      "BD"
+    ]
+  },
+  {
+    "id": "126",
+    "name": "Batman Ninja",
+    "side": "2",
+    "codes": [
+      "BNJ"
+    ]
+  },
+  {
+    "id": "186",
+    "name": "Blue Archive",
+    "side": "1",
+    "codes": [
+      "BAV"
+    ]
+  },
+  {
+    "id": "171",
+    "name": "BOCCHI THE ROCK!",
+    "side": "1",
+    "codes": [
+      "BTR"
+    ]
+  },
+  {
+    "id": "133",
+    "name": "BOFURI: I Don’t Want to Get Hurt, so I’ll Max Out My Defense.",
+    "side": "2",
+    "codes": [
+      "BFR"
+    ]
+  },
+  {
+    "id": "144",
+    "name": "Cardcaptor Sakura : Clear Card",
+    "side": "1",
+    "codes": [
+      "CCS"
+    ]
+  },
+  {
+    "id": "169",
+    "name": "Chainsaw Man",
+    "side": "2",
+    "codes": [
+      "CSM"
+    ]
+  },
+  {
+    "id": "148",
+    "name": "Date A Live",
+    "side": "1",
+    "codes": [
+      "DAL",
+      "Fdl"
+    ]
+  },
+  {
+    "id": "177",
+    "name": "Dengeki Bunko",
+    "side": "1",
+    "codes": [
+      "G86",
+      "Gas",
+      "Gaw",
+      "Gbb",
+      "Gbc",
+      "Gbd",
+      "Gbl",
+      "Gby",
+      "Gc3",
+      "Gdc",
+      "Gdr",
+      "Gds",
+      "Gdy",
+      "Gem",
+      "Gfq",
+      "Gga",
+      "Ggg",
+      "Ggh",
+      "Ggu",
+      "Ghh",
+      "Ghm",
+      "Gid",
+      "Giy",
+      "Gkb",
+      "Gkl",
+      "Gkm",
+      "Glt",
+      "Gmf",
+      "Gmm",
+      "Gmr",
+      "Gms",
+      "Gnh",
+      "Gnm",
+      "Gns",
+      "Gny",
+      "Goi",
+      "Gok",
+      "Gom",
+      "Gos",
+      "Grk",
+      "Gsb",
+      "Gsc",
+      "Gsd",
+      "Gsk",
+      "Gso",
+      "Gsp",
+      "Gsr",
+      "Gss",
+      "Gtd",
+      "Gyf"
+    ]
+  },
+  {
+    "id": "117",
+    "name": "Detective Opera Milky Holmes",
+    "side": "2",
+    "codes": [
+      "MK"
+    ]
+  },
+  {
+    "id": "1",
+    "name": "Disgaea",
+    "side": "2",
+    "codes": [
+      "DG"
+    ]
+  },
+  {
+    "id": "193",
+    "name": "Disney Mirrorverse",
+    "side": "2",
+    "codes": [
+      "MRd",
+      "MRp"
+    ]
+  },
+  {
+    "id": "113",
+    "name": "Fairy Tail",
+    "side": "2",
+    "codes": [
+      "FT"
+    ]
+  },
+  {
+    "id": "108",
+    "name": "Fate",
+    "side": "2",
+    "codes": [
+      "FS",
+      "FZ"
+    ]
+  },
+  {
+    "id": "121",
+    "name": "Fate/Apocrypha",
+    "side": "2",
+    "codes": [
+      "APO"
+    ]
+  },
+  {
+    "id": "132",
+    "name": "Fate/Grand Order",
+    "side": "2",
+    "codes": [
+      "FGO"
+    ]
+  },
+  {
+    "id": "118",
+    "name": "Fate/kaleid liner PRISMA ILLYA",
+    "side": "2",
+    "codes": [
+      "PI"
+    ]
+  },
+  {
+    "id": "183",
+    "name": "Frieren: Beyond Journey’s End",
+    "side": "2",
+    "codes": [
+      "SFN"
+    ]
+  },
+  {
+    "id": "146",
+    "name": "Fujimi Fantasia Bunko",
+    "side": "1",
+    "codes": [
+      "F35",
+      "Fab",
+      "Fcr",
+      "Fdd",
+      "Fdl",
+      "Ffp",
+      "Fgc",
+      "Fgi",
+      "Fgm",
+      "Fii",
+      "Fil",
+      "Fjk",
+      "Fkk",
+      "Fks",
+      "Fkz",
+      "Fmr",
+      "Fos",
+      "Foy",
+      "Fra",
+      "Fsa",
+      "Fsh",
+      "Fsi",
+      "Fsl",
+      "Fsp",
+      "Fsr",
+      "Ftr"
+    ]
+  },
+  {
+    "id": "194",
+    "name": "Girls Band Cry",
+    "side": "2",
+    "codes": [
+      "GCR"
+    ]
+  },
+  {
+    "id": "127",
+    "name": "Goblin Slayer",
+    "side": "2",
+    "codes": [
+      "GBS"
+    ]
+  },
+  {
+    "id": "189",
+    "name": "GODDESS OF VICTORY: NIKKE",
+    "side": "2",
+    "codes": [
+      "NIK"
+    ]
+  },
+  {
+    "id": "167",
+    "name": "Guilty Gear -Strive-",
+    "side": "2",
+    "codes": [
+      "GGST"
+    ]
+  },
+  {
+    "id": "120",
+    "name": "GURREN LAGANN",
+    "side": "2",
+    "codes": [
+      "GL"
+    ]
+  },
+  {
+    "id": "109",
+    "name": "Hatsune Miku -Project DIVA-",
+    "side": "2",
+    "codes": [
+      "PD"
+    ]
+  },
+  {
+    "id": "191",
+    "name": "HATSUNE MIKU: COLORFUL STAGE!",
+    "side": "2",
+    "codes": [
+      "PJS"
+    ]
+  },
+  {
+    "id": "156",
+    "name": "hololive production",
+    "side": "1",
+    "codes": [
+      "HOL"
+    ]
+  },
+  {
+    "id": "158",
+    "name": "Is It Wrong to Try to Pick Up Girls in a Dungeon?",
+    "side": "2",
+    "codes": [
+      "DDM"
+    ]
+  },
+  {
+    "id": "128",
+    "name": "JoJo’s Bizarre Adventure",
+    "side": "2",
+    "codes": [
+      "JJ"
+    ]
+  },
+  {
+    "id": "149",
+    "name": "Kaguya-sama: Love is War",
+    "side": "2",
+    "codes": [
+      "KGL"
+    ]
+  },
+  {
+    "id": "114",
+    "name": "Kancolle",
+    "side": "2",
+    "codes": [
+      "KC"
+    ]
+  },
+  {
+    "id": "111",
+    "name": "KILL la KILL",
+    "side": "2",
+    "codes": [
+      "KLK"
+    ]
+  },
+  {
+    "id": "143",
+    "name": "KONOSUBA -God’s blessing on this wonderful world!",
+    "side": "1",
+    "codes": [
+      "KS"
+    ]
+  },
+  {
+    "id": "116",
+    "name": "LOG HORIZON",
+    "side": "2",
+    "codes": [
+      "LH"
+    ]
+  },
+  {
+    "id": "135",
+    "name": "Love Live!",
+    "side": "1",
+    "codes": [
+      "LL",
+      "LSF",
+      "SIL"
+    ]
+  },
+  {
+    "id": "173",
+    "name": "Love Live! Nijigasaki",
+    "side": "1",
+    "codes": [
+      "LNJ",
+      "LSF",
+      "SIN"
+    ]
+  },
+  {
+    "id": "182",
+    "name": "Love Live! School idol festival 2 MIRACLE LIVE!",
+    "side": "1",
+    "codes": [
+      "LSF",
+      "SIL",
+      "SIN",
+      "SIP",
+      "SIS"
+    ]
+  },
+  {
+    "id": "141",
+    "name": "Love Live! Sunshine!!",
+    "side": "1",
+    "codes": [
+      "LSF",
+      "LSS",
+      "SIS"
+    ]
+  },
+  {
+    "id": "180",
+    "name": "Love Live! Superstar!!",
+    "side": "1",
+    "codes": [
+      "LSF",
+      "SIP"
+    ]
+  },
+  {
+    "id": "170",
+    "name": "Lycoris Recoil",
+    "side": "1",
+    "codes": [
+      "LRC"
+    ]
+  },
+  {
+    "id": "184",
+    "name": "MACROSS Delta",
+    "side": "2",
+    "codes": [
+      "MDE"
+    ]
+  },
+  {
+    "id": "196",
+    "name": "Makeine: Too Many Losing Heroines!",
+    "side": "1",
+    "codes": [
+      "MKI"
+    ]
+  },
+  {
+    "id": "176",
+    "name": "MARVEL",
+    "side": "2",
+    "codes": [
+      "MAR"
+    ]
+  },
+  {
+    "id": "161",
+    "name": "Miss Kobayashi’s Dragon Maid",
+    "side": "1",
+    "codes": [
+      "KMD"
+    ]
+  },
+  {
+    "id": "131",
+    "name": "Mob Psycho 100",
+    "side": "2",
+    "codes": [
+      "MOB"
+    ]
+  },
+  {
+    "id": "110",
+    "name": "MONOGATARI Series (BAKEMONOGATARI, NISEMONOGATARI)",
+    "side": "2",
+    "codes": [
+      "BM",
+      "NM"
+    ]
+  },
+  {
+    "id": "154",
+    "name": "Mushoku Tensei: Jobless Reincarnation",
+    "side": "2",
+    "codes": [
+      "MTI"
+    ]
+  },
+  {
+    "id": "130",
+    "name": "Nazarick: Tomb of the Undead",
+    "side": "2",
+    "codes": [
+      "OVL"
+    ]
+  },
+  {
+    "id": "123",
+    "name": "No Game No Life",
+    "side": "2",
+    "codes": [
+      "NGL"
+    ]
+  },
+  {
+    "id": "112",
+    "name": "Persona",
+    "side": "2",
+    "codes": [
+      "P3",
+      "P4",
+      "P5"
+    ]
+  },
+  {
+    "id": "185",
+    "name": "PIXAR CHARACTERS",
+    "side": "2",
+    "codes": [
+      "PXR"
+    ]
+  },
+  {
+    "id": "134",
+    "name": "Puella Magi Madoka Magica",
+    "side": "1",
+    "codes": [
+      "MM",
+      "MR"
+    ]
+  },
+  {
+    "id": "145",
+    "name": "Rascal Does Not Dream Series",
+    "side": "1",
+    "codes": [
+      "Gby",
+      "SBY"
+    ]
+  },
+  {
+    "id": "122",
+    "name": "Re:ZERO -Starting Life in Another World-",
+    "side": "2",
+    "codes": [
+      "RZ"
+    ]
+  },
+  {
+    "id": "155",
+    "name": "Rent-A-Girlfriend",
+    "side": "1",
+    "codes": [
+      "KNK"
+    ]
+  },
+  {
+    "id": "125",
+    "name": "Revue Starlight",
+    "side": "2",
+    "codes": [
+      "RSL",
+      "RSL2"
+    ]
+  },
+  {
+    "id": "190",
+    "name": "Rurouni Kenshin",
+    "side": "2",
+    "codes": [
+      "RKN"
+    ]
+  },
+  {
+    "id": "153",
+    "name": "RWBY",
+    "side": "1",
+    "codes": [
+      "RWBY"
+    ]
+  },
+  {
+    "id": "160",
+    "name": "Saekano: How to Raise a Boring Girlfriend",
+    "side": "1",
+    "codes": [
+      "Fsh",
+      "SHS"
+    ]
+  },
+  {
+    "id": "124",
+    "name": "SAO Alternative – Gun Gale Online –",
+    "side": "2",
+    "codes": [
+      "GGO",
+      "Ggg"
+    ]
+  },
+  {
+    "id": "172",
+    "name": "Shakugan no Shana",
+    "side": "1",
+    "codes": [
+      "Gss",
+      "SS"
+    ]
+  },
+  {
+    "id": "168",
+    "name": "SPY x FAMILY",
+    "side": "2",
+    "codes": [
+      "SPY"
+    ]
+  },
+  {
+    "id": "107",
+    "name": "Sword Art Online",
+    "side": "2",
+    "codes": [
+      "Gso",
+      "SAO"
+    ]
+  },
+  {
+    "id": "129",
+    "name": "That Time I Got Reincarnated as a Slime",
+    "side": "2",
+    "codes": [
+      "TSK"
+    ]
+  },
+  {
+    "id": "198",
+    "name": "The Eminence in Shadow",
+    "side": "2",
+    "codes": [
+      "EIS"
+    ]
+  },
+  {
+    "id": "163",
+    "name": "The Fruit of Grisaia",
+    "side": "2",
+    "codes": [
+      "GRI"
+    ]
+  },
+  {
+    "id": "139",
+    "name": "THE IDOLM@STER CINDERELLA GIRLS",
+    "side": "1",
+    "codes": [
+      "IMC"
+    ]
+  },
+  {
+    "id": "138",
+    "name": "The Melancholy of Haruhi Suzumiya",
+    "side": "1",
+    "codes": [
+      "SY"
+    ]
+  },
+  {
+    "id": "152",
+    "name": "The Quintessential Quintuplets",
+    "side": "1",
+    "codes": [
+      "5HY"
+    ]
+  },
+  {
+    "id": "150",
+    "name": "The Seven Deadly Sins",
+    "side": "2",
+    "codes": [
+      "SDS"
+    ]
+  },
+  {
+    "id": "140",
+    "name": "To Loveru Darkness 2nd",
+    "side": "1",
+    "codes": [
+      "TL"
+    ]
+  },
+  {
+    "id": "159",
+    "name": "Tokyo Revengers",
+    "side": "2",
+    "codes": [
+      "TRV"
+    ]
+  },
+  {
+    "id": "195",
+    "name": "TV Anime “DANDADAN”",
+    "side": "2",
+    "codes": [
+      "DDD"
+    ]
+  },
+  {
+    "id": "199",
+    "name": "Umamusume: Pretty Derby",
+    "side": "1",
+    "codes": [
+      "UMA"
+    ]
+  }
+]

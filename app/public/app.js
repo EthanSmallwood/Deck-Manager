@@ -4,6 +4,7 @@ const state = {
   resolved: null,
   builderCards: [],
   builderResults: [],
+  builderSeries: [],
 };
 
 const el = {
@@ -52,8 +53,24 @@ const el = {
   builderModal: document.querySelector("#builderModal"),
   closeBuilderModal: document.querySelector("#closeBuilderModal"),
   builderSearchInput: document.querySelector("#builderSearchInput"),
-  builderTitleInput: document.querySelector("#builderTitleInput"),
+  builderSeriesSelect: document.querySelector("#builderSeriesSelect"),
+  builderSeriesButton: document.querySelector("#builderSeriesButton"),
+  builderSeriesMenu: document.querySelector("#builderSeriesMenu"),
   builderSearchBtn: document.querySelector("#builderSearchBtn"),
+  builderTypeFilter: document.querySelector("#builderTypeFilter"),
+  builderColorFilter: document.querySelector("#builderColorFilter"),
+  builderLevelMin: document.querySelector("#builderLevelMin"),
+  builderLevelMax: document.querySelector("#builderLevelMax"),
+  builderCostMin: document.querySelector("#builderCostMin"),
+  builderCostMax: document.querySelector("#builderCostMax"),
+  builderPowerMin: document.querySelector("#builderPowerMin"),
+  builderPowerMax: document.querySelector("#builderPowerMax"),
+  builderSoulMin: document.querySelector("#builderSoulMin"),
+  builderSoulMax: document.querySelector("#builderSoulMax"),
+  builderTriggerFilter: document.querySelector("#builderTriggerFilter"),
+  builderClearFiltersBtn: document.querySelector("#builderClearFiltersBtn"),
+  builderResultCount: document.querySelector("#builderResultCount"),
+  builderDeckCount: document.querySelector("#builderDeckCount"),
   builderResults: document.querySelector("#builderResults"),
   builderValidation: document.querySelector("#builderValidation"),
   builderDeckList: document.querySelector("#builderDeckList"),
@@ -84,6 +101,11 @@ el.builderSearchBtn.addEventListener("click", searchBuilderCards);
 el.builderSearchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") searchBuilderCards();
 });
+el.builderSeriesSelect.addEventListener("change", searchBuilderCards);
+el.builderSeriesButton.addEventListener("click", toggleBuilderSeriesMenu);
+el.builderSeriesMenu.addEventListener("click", selectBuilderSeriesFromMenu);
+for (const input of builderFilterInputs()) input.addEventListener("change", searchBuilderCards);
+el.builderClearFiltersBtn.addEventListener("click", clearBuilderFilters);
 el.builderClearBtn.addEventListener("click", clearBuilderDeck);
 el.builderApplyBtn.addEventListener("click", applyBuilderDeck);
 el.cardModal.addEventListener("click", (event) => {
@@ -95,10 +117,24 @@ el.settingsModal.addEventListener("click", (event) => {
 el.builderModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-builder]")) closeBuilderModal();
 });
+document.addEventListener("click", (event) => {
+  if (!el.builderSeriesMenu.hidden && !event.target.closest(".builder-series-field")) closeBuilderSeriesMenu();
+});
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !el.cardModal.hidden) closeCardModal();
-  if (event.key === "Escape" && !el.settingsModal.hidden) closeSettingsModal();
-  if (event.key === "Escape" && !el.builderModal.hidden) closeBuilderModal();
+  if (event.key !== "Escape") return;
+  if (!el.builderSeriesMenu.hidden) {
+    closeBuilderSeriesMenu();
+    return;
+  }
+  if (!el.cardModal.hidden) {
+    closeCardModal();
+    return;
+  }
+  if (!el.settingsModal.hidden) {
+    closeSettingsModal();
+    return;
+  }
+  if (!el.builderModal.hidden) closeBuilderModal();
 });
 
 async function boot() {
@@ -388,17 +424,19 @@ function openCardModal(card) {
 
   el.modalCardDetails.innerHTML = details.map(([label, value]) => `
     <dt>${escapeHtml(label)}</dt>
-    <dd>${energyHtml(value)}</dd>
+    <dd>${detailValueHtml(card, label, value)}</dd>
   `).join("") + (card.detailUrl ? `
     <dt>Link</dt>
     <dd><a href="${escapeAttr(card.detailUrl)}" target="_blank" rel="noopener noreferrer">Official Site</a></dd>
   ` : "");
 
   el.modalCardText.innerHTML = cardRulesHtml(card);
+  el.cardModal.classList.toggle("over-builder", !el.builderModal.hidden);
   el.cardModal.hidden = false;
 }
 
 function closeCardModal() {
+  el.cardModal.classList.remove("over-builder");
   el.cardModal.hidden = true;
 }
 
@@ -420,7 +458,20 @@ function cardRulesHtml(card) {
     lines.push([header, art.text].filter(Boolean).join("\n"));
   }
 
-  return energyHtml(lines.filter(Boolean).join("\n\n") || "No card text stored.");
+  const text = lines.filter(Boolean).join("\n\n") || "No card text stored.";
+  return isHololiveCard(card) ? energyHtml(text) : escapeHtml(text);
+}
+
+function detailValueHtml(card, label, value) {
+  if (isHololiveCard(card) && ["Baton Pass", "Tags"].includes(label)) return energyHtml(value);
+  return escapeHtml(value);
+}
+
+function isHololiveCard(card) {
+  return card.game === "Hololive OCG"
+    || Array.isArray(card.arts)
+    || Array.isArray(card.keywords)
+    || Boolean(card.batonPass || card.bloomLevel || card.hp);
 }
 
 function energyHtml(value) {
@@ -536,19 +587,22 @@ function renderBuildJob(job, game = "weiss") {
   el.settingsLog.textContent = [heading, "", job.log || ""].join("\n").trim();
 }
 
-function openBuilderModal() {
+async function openBuilderModal() {
   el.gameInput.value = "Weiss Schwarz";
   const current = state.resolved?.cards?.length ? state.resolved.cards : selectedDeck()?.cards || [];
   state.builderCards = current
     .filter((card) => card.game === "Weiss Schwarz" || !card.game)
     .map((card) => ({ ...card, qty: Number(card.qty || 1) }));
-  el.builderTitleInput.value = builderTitleCode() || "";
   el.builderModal.hidden = false;
+  await loadBuilderSeries();
+  el.builderSeriesSelect.value = builderSeriesId();
+  syncBuilderSeriesButton();
   renderBuilderDeck();
-  if (!state.builderResults.length) searchBuilderCards();
+  searchBuilderCards();
 }
 
 function closeBuilderModal() {
+  closeBuilderSeriesMenu();
   el.builderModal.hidden = true;
 }
 
@@ -557,8 +611,9 @@ async function searchBuilderCards() {
   try {
     const params = new URLSearchParams({
       q: el.builderSearchInput.value.trim(),
-      title: el.builderTitleInput.value.trim(),
+      title: el.builderSeriesSelect.value,
     });
+    appendBuilderFilterParams(params);
     const result = await api(`/api/weiss/search?${params.toString()}`);
     state.builderResults = result.cards || [];
     renderBuilderResults();
@@ -569,9 +624,105 @@ async function searchBuilderCards() {
   }
 }
 
+async function loadBuilderSeries() {
+  if (state.builderSeries.length) return;
+  const result = await api("/api/weiss/series");
+  state.builderSeries = result.series || [];
+  renderBuilderSeriesOptions();
+}
+
+function renderBuilderSeriesOptions() {
+  const current = el.builderSeriesSelect.value || builderSeriesId();
+  el.builderSeriesSelect.innerHTML = [
+    `<option value="">All series</option>`,
+    ...state.builderSeries.map((series) => {
+      const label = builderSeriesLabel(series);
+      return `<option value="${escapeAttr(series.id || series.code)}">${escapeHtml(label)}</option>`;
+    }),
+  ].join("");
+  el.builderSeriesMenu.innerHTML = [
+    `<button type="button" data-builder-series="">All series</button>`,
+    ...state.builderSeries.map((series) => {
+      const label = builderSeriesLabel(series);
+      return `<button type="button" data-builder-series="${escapeAttr(series.id || series.code)}">${escapeHtml(label)}</button>`;
+    }),
+  ].join("");
+  el.builderSeriesSelect.value = current;
+  syncBuilderSeriesButton();
+}
+
+function builderSeriesLabel(series) {
+  return `${series.name || series.code} - ${Number(series.cards || 0).toLocaleString()} cards`;
+}
+
+function toggleBuilderSeriesMenu(event) {
+  event.stopPropagation();
+  el.builderSeriesMenu.hidden = !el.builderSeriesMenu.hidden;
+}
+
+function closeBuilderSeriesMenu() {
+  el.builderSeriesMenu.hidden = true;
+}
+
+function selectBuilderSeriesFromMenu(event) {
+  const button = event.target.closest("[data-builder-series]");
+  if (!button) return;
+  el.builderSeriesSelect.value = button.dataset.builderSeries;
+  syncBuilderSeriesButton();
+  closeBuilderSeriesMenu();
+  searchBuilderCards();
+}
+
+function syncBuilderSeriesButton() {
+  const selected = selectedBuilderSeries();
+  el.builderSeriesButton.textContent = selected ? builderSeriesLabel(selected) : "All series";
+}
+
+function builderFilterInputs() {
+  return [
+    el.builderTypeFilter,
+    el.builderColorFilter,
+    el.builderLevelMin,
+    el.builderLevelMax,
+    el.builderCostMin,
+    el.builderCostMax,
+    el.builderPowerMin,
+    el.builderPowerMax,
+    el.builderSoulMin,
+    el.builderSoulMax,
+    el.builderTriggerFilter,
+  ];
+}
+
+function appendBuilderFilterParams(params) {
+  const values = {
+    type: el.builderTypeFilter.value,
+    color: el.builderColorFilter.value,
+    levelMin: el.builderLevelMin.value,
+    levelMax: el.builderLevelMax.value,
+    costMin: el.builderCostMin.value,
+    costMax: el.builderCostMax.value,
+    powerMin: el.builderPowerMin.value,
+    powerMax: el.builderPowerMax.value,
+    soulMin: el.builderSoulMin.value,
+    soulMax: el.builderSoulMax.value,
+    trigger: el.builderTriggerFilter.value,
+  };
+
+  for (const [key, value] of Object.entries(values)) {
+    if (String(value || "").trim()) params.set(key, value);
+  }
+}
+
+function clearBuilderFilters() {
+  for (const input of builderFilterInputs()) input.value = "";
+  searchBuilderCards();
+}
+
 function renderBuilderResults() {
+  el.builderResultCount.textContent = `${state.builderResults.length.toLocaleString()} shown`;
   el.builderResults.innerHTML = state.builderResults.map((card, index) => `
-    <article class="builder-card">
+    <article class="builder-card" data-builder-card="${index}" tabindex="0">
       ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
       <div>
         <strong>${escapeHtml(card.name)}</strong>
@@ -581,8 +732,21 @@ function renderBuilderResults() {
     </article>
   `).join("") || `<div class="builder-note">No cards found.</div>`;
 
+  for (const tile of el.builderResults.querySelectorAll("[data-builder-card]")) {
+    tile.addEventListener("click", () => openCardModal(normalizeBuilderCard(state.builderResults[Number(tile.dataset.builderCard)])));
+    tile.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCardModal(normalizeBuilderCard(state.builderResults[Number(tile.dataset.builderCard)]));
+      }
+    });
+  }
+
   for (const button of el.builderResults.querySelectorAll("[data-builder-add]")) {
-    button.addEventListener("click", () => addBuilderCard(state.builderResults[Number(button.dataset.builderAdd)]));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addBuilderCard(state.builderResults[Number(button.dataset.builderAdd)]);
+    });
   }
 }
 
@@ -592,7 +756,8 @@ function addBuilderCard(card) {
   if (existing) existing.qty += 1;
   else state.builderCards.push(normalizeBuilderCard(card));
 
-  if (!el.builderTitleInput.value.trim()) el.builderTitleInput.value = titleCode(card.number);
+  if (!el.builderSeriesSelect.value) el.builderSeriesSelect.value = seriesIdForCodes([titleCode(card.number)]);
+  syncBuilderSeriesButton();
   renderBuilderDeck();
 }
 
@@ -606,55 +771,87 @@ function changeBuilderQty(number, delta) {
 
 function renderBuilderDeck() {
   const sorted = [...state.builderCards].sort((a, b) => Number(isClimax(a)) - Number(isClimax(b)) || a.number.localeCompare(b.number));
+  const total = sorted.reduce((sum, card) => sum + Number(card.qty || 0), 0);
+  el.builderDeckCount.textContent = `${total}/50 cards`;
   el.builderDeckList.innerHTML = sorted.map((card) => `
-    <article class="builder-deck-row">
-      <span>x${card.qty}</span>
-      <div>
-        <strong>${escapeHtml(card.name)}</strong>
-        <small>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")}</small>
+    <article class="builder-deck-row" data-builder-selected="${escapeAttr(card.number)}" tabindex="0">
+      <div class="builder-deck-image">
+        ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+        <span>x${card.qty}</span>
       </div>
-      <button data-builder-minus="${escapeAttr(card.number)}">-</button>
-      <button data-builder-plus="${escapeAttr(card.number)}">+</button>
+      <div class="builder-deck-copy">
+        <strong>${escapeHtml(card.name)}</strong>
+        <small>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")} ${escapeHtml(card.color || "")}</small>
+      </div>
+      <div class="builder-deck-controls">
+        <button data-builder-minus="${escapeAttr(card.number)}">-</button>
+        <button data-builder-plus="${escapeAttr(card.number)}">+</button>
+      </div>
     </article>
   `).join("") || `<div class="builder-note">No cards in deck yet.</div>`;
 
+  for (const tile of el.builderDeckList.querySelectorAll("[data-builder-selected]")) {
+    tile.addEventListener("click", () => openCardModal(state.builderCards.find((card) => card.number === tile.dataset.builderSelected)));
+    tile.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCardModal(state.builderCards.find((card) => card.number === tile.dataset.builderSelected));
+      }
+    });
+  }
+
   for (const button of el.builderDeckList.querySelectorAll("[data-builder-minus]")) {
-    button.addEventListener("click", () => changeBuilderQty(button.dataset.builderMinus, -1));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      changeBuilderQty(button.dataset.builderMinus, -1);
+    });
   }
   for (const button of el.builderDeckList.querySelectorAll("[data-builder-plus]")) {
-    button.addEventListener("click", () => changeBuilderQty(button.dataset.builderPlus, 1));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      changeBuilderQty(button.dataset.builderPlus, 1);
+    });
   }
 
   renderBuilderValidation();
 }
 
 function renderBuilderValidation() {
-  const v = validateWeissNeoStandard(state.builderCards);
+  const v = validateWeissNeoStandard(state.builderCards, selectedBuilderSeries());
   el.builderValidation.innerHTML = `
     <div class="builder-counts">
       <span class="${v.total === 50 ? "ok" : "bad"}">Total ${v.total}/50</span>
       <span class="${v.climax <= 8 ? "ok" : "bad"}">Climax ${v.climax}/8</span>
-      <span class="${v.titleOk ? "ok" : "bad"}">Title ${escapeHtml(v.title || "-")}</span>
+      <span class="${v.titleOk ? "ok" : "bad"}">Series ${escapeHtml(v.title || "-")}</span>
     </div>
     ${v.issues.length ? `<ul>${v.issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>` : `<div class="ok">Neo-Standard checks pass.</div>`}
   `;
 }
 
-function validateWeissNeoStandard(cards) {
+function validateWeissNeoStandard(cards, selectedSeries) {
   const total = cards.reduce((sum, card) => sum + Number(card.qty || 0), 0);
   const climax = cards.filter(isClimax).reduce((sum, card) => sum + Number(card.qty || 0), 0);
   const titles = [...new Set(cards.map((card) => titleCode(card.number)).filter(Boolean))];
+  const allowedCodes = new Set((selectedSeries?.codes || []).map((code) => code.toUpperCase()));
+  const outsideSeries = allowedCodes.size ? titles.filter((code) => !allowedCodes.has(code)) : [];
   const issues = [];
 
   if (total !== 50) issues.push("Deck must contain exactly 50 cards.");
   if (climax > 8) issues.push("Deck may contain at most 8 climax cards.");
-  if (titles.length > 1) issues.push("Neo-Standard decks may only include cards from one title.");
+  if (outsideSeries.length) issues.push(`These cards are outside ${selectedSeries.name}: ${outsideSeries.join(", ")}.`);
+  if (!allowedCodes.size && titles.length > 1) issues.push("Neo-Standard decks may only include cards from one title.");
 
   for (const card of cards) {
     if (Number(card.qty || 0) > 4) issues.push(`${card.number} has ${card.qty} copies. Maximum is 4.`);
   }
 
-  return { total, climax, title: titles[0] || "", titleOk: titles.length <= 1, issues };
+  return {
+    total,
+    climax,
+    title: selectedSeries ? `${selectedSeries.name} (${(selectedSeries.codes || []).join(", ")})` : titles[0] || "",
+    titleOk: allowedCodes.size ? outsideSeries.length === 0 : titles.length <= 1,
+    issues,
+  };
 }
 
 function clearBuilderDeck() {
@@ -699,8 +896,24 @@ function normalizeBuilderCard(card) {
   };
 }
 
-function builderTitleCode() {
-  return [...new Set(state.builderCards.map((card) => titleCode(card.number)).filter(Boolean))][0] || "";
+function builderSeriesId() {
+  const codes = [...new Set(state.builderCards.map((card) => titleCode(card.number)).filter(Boolean))];
+  return seriesIdForCodes(codes);
+}
+
+function seriesIdForCodes(codes) {
+  if (!codes.length) return "";
+  const normalized = codes.map((code) => code.toUpperCase());
+  const match = state.builderSeries.find((series) => {
+    const seriesCodes = new Set((series.codes || [series.code]).map((code) => code.toUpperCase()));
+    return normalized.every((code) => seriesCodes.has(code));
+  });
+  return match?.id || normalized[0];
+}
+
+function selectedBuilderSeries() {
+  const selected = el.builderSeriesSelect.value;
+  return state.builderSeries.find((series) => String(series.id || series.code) === selected) || null;
 }
 
 function titleCode(number) {
