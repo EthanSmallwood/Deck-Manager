@@ -444,7 +444,7 @@ label {
 
 .collection-toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 420px) 160px minmax(320px, 1fr) auto;
+  grid-template-columns: minmax(180px, 220px) minmax(360px, 560px) 140px minmax(360px, 1fr) auto;
   gap: 14px;
   align-items: end;
   border-bottom: 1px solid var(--line);
@@ -452,10 +452,19 @@ label {
   padding: 12px 22px;
 }
 
+.collection-toolbar label {
+  min-width: 0;
+}
+
 .collection-toolbar input,
 .collection-toolbar select,
 .collection-toolbar .builder-series-button {
   min-height: 42px;
+}
+
+.collection-search-field input,
+.collection-toolbar .builder-series-button {
+  width: 100%;
 }
 
 .collection-layout {
@@ -1048,6 +1057,10 @@ label {
 
 .builder-note {
   color: var(--muted);
+}
+
+.grid-wide {
+  grid-column: 1 / -1;
 }
 
 .ok {

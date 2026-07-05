@@ -147,6 +147,13 @@
         </div>
         <button id="buildHololiveDbBtn">Build Hololive Card DB</button>
       </section>
+      <section class="settings-body">
+        <div>
+          <h4>Image Cache</h4>
+          <p>Delete generated TTS card and sheet images. Saved object JSON files are kept.</p>
+        </div>
+        <button id="clearImageCacheBtn">Clear Cached Images</button>
+      </section>
       <section class="settings-body settings-path">
         <label>
           TTS Saved Object JSON Folder
@@ -274,7 +281,7 @@
         <button id="closeCollectionModal" aria-label="Close collection">Close</button>
       </header>
       <section class="collection-toolbar">
-        <label>
+        <label class="collection-game-field">
           Game
           <select id="collectionGameFilter">
             <option>Weiss Schwarz</option>
@@ -287,7 +294,7 @@
           <button id="collectionSeriesButton" class="builder-series-button" type="button">All series</button>
           <div id="collectionSeriesMenu" class="builder-series-menu" hidden></div>
         </label>
-        <label>
+        <label class="collection-view-field">
           View
           <select id="collectionViewFilter">
             <option value="all">All cards</option>
@@ -295,7 +302,7 @@
             <option value="unowned">Unowned</option>
           </select>
         </label>
-        <label>
+        <label class="collection-search-field">
           Search
           <input id="collectionSearchInput" placeholder="Name, card number, text">
         </label>
@@ -304,6 +311,15 @@
       <section class="collection-layout">
         <aside class="builder-filters collection-filters">
           <h4>Filters</h4>
+          <label>
+            Sort
+            <select id="collectionSortInput">
+              <option value="series">Series</option>
+              <option value="number">Card number</option>
+              <option value="name">Name</option>
+              <option value="owned-desc">Quantity owned</option>
+            </select>
+          </label>
           <label>
             Card Type
             <select id="collectionTypeFilter">

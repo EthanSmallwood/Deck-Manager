@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { spawn } from "node:child_process";
@@ -62,12 +62,12 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/collection/cards/search") {
-      sendJson(response, 200, { ok: true, cards: collectionCards(url) });
+      sendJson(response, 200, { ok: true, ...collectionCards(url) });
       return;
     }
 
     if (request.method === "GET" && url.pathname === "/api/collection/weiss/cards") {
-      sendJson(response, 200, { ok: true, cards: collectionCards(url, "Weiss Schwarz") });
+      sendJson(response, 200, { ok: true, ...collectionCards(url, "Weiss Schwarz") });
       return;
     }
 
@@ -95,6 +95,11 @@ const server = createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/settings") {
       const body = await readJsonBody(request);
       sendJson(response, 200, { ok: true, settings: saveSettings(body) });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/cache/images") {
+      sendJson(response, 200, { ok: true, ...clearImageCache() });
       return;
     }
 
@@ -149,9 +154,8 @@ const server = createServer(async (request, response) => {
             card.rarity,
             card.text,
           ].join(" ").toLowerCase().includes(q);
-        })
-        .slice(0, 120);
-      sendJson(response, 200, { ok: true, cards });
+        });
+      sendJson(response, 200, { ok: true, ...pageCards(cards, url, 120) });
       return;
     }
 
@@ -304,6 +308,45 @@ function sendText(response, status, text, contentType) {
   response.end(text);
 }
 
+function clearImageCache() {
+  const ttsRoot = resolve("outputs", "tts");
+  if (!existsSync(ttsRoot)) return { directoriesDeleted: 0, filesDeleted: 0 };
+
+  let directoriesDeleted = 0;
+  let filesDeleted = 0;
+
+  for (const entry of readdirSync(ttsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+
+    for (const cacheDirName of ["images", "sheets"]) {
+      const cacheDir = resolve(ttsRoot, entry.name, cacheDirName);
+      if (!isInside(cacheDir, ttsRoot) || !existsSync(cacheDir)) continue;
+
+      filesDeleted += countFiles(cacheDir);
+      rmSync(cacheDir, { recursive: true, force: true });
+      directoriesDeleted += 1;
+    }
+  }
+
+  return { directoriesDeleted, filesDeleted };
+}
+
+function countFiles(path) {
+  const stats = statSync(path);
+  if (stats.isFile()) return 1;
+  if (!stats.isDirectory()) return 0;
+
+  let count = 0;
+  for (const entry of readdirSync(path, { withFileTypes: true })) {
+    count += countFiles(resolve(path, entry.name));
+  }
+  return count;
+}
+
+function isInside(child, parent) {
+  return child !== parent && child.startsWith(parent + sep);
+}
+
 async function readJsonBody(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -321,6 +364,28 @@ function numberParam(url, key) {
   if (!value) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function integerParam(url, key, fallback) {
+  const raw = url.searchParams.get(key);
+  if (raw === null || raw === "") return fallback;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
+}
+
+function pageCards(cards, url, defaultLimit = 120) {
+  const total = cards.length;
+  const offset = integerParam(url, "offset", 0);
+  const requestedLimit = integerParam(url, "limit", defaultLimit);
+  const limit = Math.min(Math.max(requestedLimit, 1), 500);
+  const page = cards.slice(offset, offset + limit);
+  return {
+    cards: page,
+    total,
+    offset,
+    limit,
+    hasMore: offset + page.length < total,
+  };
 }
 
 function matchesWeissFilters(card, filters) {
@@ -344,11 +409,12 @@ function collectionWeissCards(url) {
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
   const title = String(url.searchParams.get("title") || "").trim();
   const view = String(url.searchParams.get("view") || "all").trim().toLowerCase();
+  const sort = String(url.searchParams.get("sort") || "series").trim().toLowerCase();
   const titleCodes = weissTitleCodes(title);
   const owned = loadCollection().cards;
   const filters = collectionFilters(url);
 
-  return loadWeissDatabase().cards
+  const cards = loadWeissDatabase().cards
     .filter((card) => !titleCodes.length || titleCodes.includes(titleCode(card.number)))
     .filter((card) => matchesWeissFilters(card, filters))
     .map((card) => ({ ...card, ownedQty: Number(owned[card.number] || 0), series: titleCode(card.number) }))
@@ -360,19 +426,20 @@ function collectionWeissCards(url) {
         .join(" ")
         .toLowerCase()
         .includes(q);
-    })
-    .sort((a, b) => a.series.localeCompare(b.series) || a.number.localeCompare(b.number))
-    .slice(0, 500);
+    });
+  sortCollectionCards(cards, sort);
+  return pageCards(cards, url);
 }
 
 function collectionHololiveCards(url) {
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
   const cardSet = String(url.searchParams.get("cardSet") || url.searchParams.get("title") || "").trim();
   const view = String(url.searchParams.get("view") || "all").trim().toLowerCase();
+  const sort = String(url.searchParams.get("sort") || "series").trim().toLowerCase();
   const owned = loadCollection().cards;
   const filters = collectionFilters(url);
 
-  return loadHololiveDatabase()
+  const cards = loadHololiveDatabase()
     .filter((card) => !cardSet || hololiveCardSets(card).includes(cardSet))
     .filter((card) => matchesHololiveFilters(card, filters))
     .map((card) => ({ ...card, ownedQty: Number(owned[card.number] || 0), series: hololiveCardSets(card)[0] || card.cardSet || "" }))
@@ -393,9 +460,26 @@ function collectionHololiveCards(url) {
         card.extraText,
         card.tags,
       ].join(" ").toLowerCase().includes(q);
-    })
-    .sort((a, b) => a.series.localeCompare(b.series) || a.number.localeCompare(b.number) || a.rarity.localeCompare(b.rarity))
-    .slice(0, 500);
+    });
+  sortCollectionCards(cards, sort);
+  return pageCards(cards, url);
+}
+
+function sortCollectionCards(cards, sort) {
+  const bySeries = (a, b) => String(a.series || "").localeCompare(String(b.series || ""))
+    || String(a.number || "").localeCompare(String(b.number || ""))
+    || String(a.rarity || "").localeCompare(String(b.rarity || ""));
+  const byNumber = (a, b) => String(a.number || "").localeCompare(String(b.number || ""))
+    || String(a.name || "").localeCompare(String(b.name || ""));
+  const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""))
+    || String(a.number || "").localeCompare(String(b.number || ""));
+  const byOwnedDesc = (a, b) => Number(b.ownedQty || 0) - Number(a.ownedQty || 0)
+    || bySeries(a, b);
+
+  if (sort === "number") cards.sort(byNumber);
+  else if (sort === "name") cards.sort(byName);
+  else if (sort === "owned-desc") cards.sort(byOwnedDesc);
+  else cards.sort(bySeries);
 }
 
 function collectionFilters(url) {

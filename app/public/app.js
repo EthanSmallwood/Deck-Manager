@@ -4,11 +4,19 @@ const state = {
   resolved: null,
   builderCards: [],
   builderResults: [],
+  builderResultsTotal: 0,
+  builderResultsHasMore: false,
+  builderResultsLoading: false,
   builderSeries: [],
   hololiveSets: [],
   collection: { cards: {} },
   collectionResults: [],
+  collectionResultsTotal: 0,
+  collectionResultsHasMore: false,
+  collectionResultsLoading: false,
 };
+
+const SEARCH_PAGE_SIZE = 120;
 
 const BUILDER_FILTER_OPTIONS = {
   "Weiss Schwarz": {
@@ -62,6 +70,7 @@ const el = {
   closeSettingsModal: document.querySelector("#closeSettingsModal"),
   buildWeissDbBtn: document.querySelector("#buildWeissDbBtn"),
   buildHololiveDbBtn: document.querySelector("#buildHololiveDbBtn"),
+  clearImageCacheBtn: document.querySelector("#clearImageCacheBtn"),
   saveSettingsBtn: document.querySelector("#saveSettingsBtn"),
   ttsJsonExportDirInput: document.querySelector("#ttsJsonExportDirInput"),
   settingsLog: document.querySelector("#settingsLog"),
@@ -105,6 +114,7 @@ const el = {
   collectionSeriesButton: document.querySelector("#collectionSeriesButton"),
   collectionSeriesMenu: document.querySelector("#collectionSeriesMenu"),
   collectionViewFilter: document.querySelector("#collectionViewFilter"),
+  collectionSortInput: document.querySelector("#collectionSortInput"),
   collectionSearchInput: document.querySelector("#collectionSearchInput"),
   collectionSearchBtn: document.querySelector("#collectionSearchBtn"),
   collectionTypeFilter: document.querySelector("#collectionTypeFilter"),
@@ -142,6 +152,7 @@ el.closeCardModal.addEventListener("click", closeCardModal);
 el.closeSettingsModal.addEventListener("click", closeSettingsModal);
 el.buildWeissDbBtn.addEventListener("click", buildWeissCardDb);
 el.buildHololiveDbBtn.addEventListener("click", buildHololiveCardDb);
+el.clearImageCacheBtn.addEventListener("click", clearImageCache);
 el.saveSettingsBtn.addEventListener("click", saveSettings);
 el.closeBuilderModal.addEventListener("click", closeBuilderModal);
 el.builderGameInput.addEventListener("change", switchBuilderGame);
@@ -154,6 +165,7 @@ el.builderSeriesButton.addEventListener("click", toggleBuilderSeriesMenu);
 el.builderSeriesMenu.addEventListener("click", selectBuilderSeriesFromMenu);
 for (const input of builderFilterInputs()) input.addEventListener("change", searchBuilderCards);
 el.builderClearFiltersBtn.addEventListener("click", clearBuilderFilters);
+el.builderResults.addEventListener("scroll", maybeLoadMoreBuilderCards);
 el.builderClearBtn.addEventListener("click", clearBuilderDeck);
 el.builderApplyBtn.addEventListener("click", applyBuilderDeck);
 el.closeCollectionModal.addEventListener("click", closeCollectionModal);
@@ -163,10 +175,12 @@ el.collectionSearchInput.addEventListener("keydown", (event) => {
 });
 el.collectionGameFilter.addEventListener("change", switchCollectionGame);
 el.collectionViewFilter.addEventListener("change", searchCollectionCards);
+el.collectionSortInput.addEventListener("change", searchCollectionCards);
 el.collectionSeriesButton.addEventListener("click", toggleCollectionSeriesMenu);
 el.collectionSeriesMenu.addEventListener("click", selectCollectionSeriesFromMenu);
 for (const input of collectionFilterInputs()) input.addEventListener("change", searchCollectionCards);
 el.collectionClearFiltersBtn.addEventListener("click", clearCollectionFilters);
+el.collectionGrid.addEventListener("scroll", maybeLoadMoreCollectionCards);
 el.cardModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-card]")) closeCardModal();
 });
@@ -670,6 +684,21 @@ async function saveSettings() {
   }
 }
 
+async function clearImageCache() {
+  const confirmed = window.confirm("Delete generated cached TTS images? Saved object JSON files will stay.");
+  if (!confirmed) return;
+
+  setBusy(el.clearImageCacheBtn, true, "Clearing...");
+  try {
+    const result = await api("/api/cache/images", {});
+    el.settingsLog.textContent = `Cleared ${Number(result.filesDeleted || 0).toLocaleString()} cached image file(s) from ${Number(result.directoriesDeleted || 0).toLocaleString()} folder(s).`;
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.clearImageCacheBtn, false, "Clear Cached Images");
+  }
+}
+
 async function buildHololiveCardDb() {
   setBusy(el.buildHololiveDbBtn, true, "Building...");
   el.settingsLog.textContent = "Building Hololive card database. This can take a few minutes...";
@@ -738,25 +767,39 @@ function closeBuilderModal() {
   el.builderModal.hidden = true;
 }
 
-async function searchBuilderCards() {
-  setBusy(el.builderSearchBtn, true, "Searching...");
+async function searchBuilderCards({ append = false } = {}) {
+  if (state.builderResultsLoading) return;
+  state.builderResultsLoading = true;
+  if (!append) setBusy(el.builderSearchBtn, true, "Searching...");
   try {
+    const offset = append ? state.builderResults.length : 0;
     const params = new URLSearchParams({
       game: el.builderGameInput.value,
       q: el.builderSearchInput.value.trim(),
       title: el.builderSeriesSelect.value,
+      offset: String(offset),
+      limit: String(SEARCH_PAGE_SIZE),
     });
     appendBuilderFilterParams(params);
     const result = el.builderGameInput.value === "Hololive OCG"
       ? await api(`/api/collection/cards/search?${params.toString()}`)
       : await api(`/api/weiss/search?${params.toString()}`);
-    state.builderResults = result.cards || [];
+    state.builderResults = append ? [...state.builderResults, ...(result.cards || [])] : result.cards || [];
+    state.builderResultsTotal = Number(result.total || state.builderResults.length);
+    state.builderResultsHasMore = Boolean(result.hasMore);
     renderBuilderResults();
   } catch (error) {
     el.builderResults.innerHTML = `<div class="builder-note bad">${escapeHtml(error.message)}</div>`;
   } finally {
-    setBusy(el.builderSearchBtn, false, "Search");
+    state.builderResultsLoading = false;
+    if (!append) setBusy(el.builderSearchBtn, false, "Search");
   }
+}
+
+function maybeLoadMoreBuilderCards() {
+  if (!state.builderResultsHasMore || state.builderResultsLoading) return;
+  if (!isNearScrollBottom(el.builderResults)) return;
+  searchBuilderCards({ append: true });
 }
 
 async function loadBuilderSeries() {
@@ -935,24 +978,39 @@ function syncCollectionSeriesButton() {
   el.collectionSeriesButton.textContent = selected ? collectionSeriesOptionLabel(selected) : `All ${collectionSeriesKind().toLowerCase()}`;
 }
 
-async function searchCollectionCards() {
-  setBusy(el.collectionSearchBtn, true, "Searching...");
+async function searchCollectionCards({ append = false } = {}) {
+  if (state.collectionResultsLoading) return;
+  state.collectionResultsLoading = true;
+  if (!append) setBusy(el.collectionSearchBtn, true, "Searching...");
   try {
+    const offset = append ? state.collectionResults.length : 0;
     const params = new URLSearchParams({
       game: el.collectionGameFilter.value,
       q: el.collectionSearchInput.value.trim(),
       title: el.collectionSeriesSelect.value,
       view: el.collectionViewFilter.value,
+      sort: el.collectionSortInput.value,
+      offset: String(offset),
+      limit: String(SEARCH_PAGE_SIZE),
     });
     appendCollectionFilterParams(params);
     const result = await api(`/api/collection/cards/search?${params.toString()}`);
-    state.collectionResults = result.cards || [];
+    state.collectionResults = append ? [...state.collectionResults, ...(result.cards || [])] : result.cards || [];
+    state.collectionResultsTotal = Number(result.total || state.collectionResults.length);
+    state.collectionResultsHasMore = Boolean(result.hasMore);
     renderCollectionCards();
   } catch (error) {
     el.collectionGrid.innerHTML = `<div class="builder-note bad">${escapeHtml(error.message)}</div>`;
   } finally {
-    setBusy(el.collectionSearchBtn, false, "Search");
+    state.collectionResultsLoading = false;
+    if (!append) setBusy(el.collectionSearchBtn, false, "Search");
   }
+}
+
+function maybeLoadMoreCollectionCards() {
+  if (!state.collectionResultsHasMore || state.collectionResultsLoading) return;
+  if (!isNearScrollBottom(el.collectionGrid)) return;
+  searchCollectionCards({ append: true });
 }
 
 function switchCollectionGame() {
@@ -1011,12 +1069,27 @@ function clearCollectionFilters(search = true) {
     if (input.type === "checkbox") input.checked = false;
     else input.value = "";
   }
+  el.collectionSortInput.value = "series";
   if (search) searchCollectionCards();
 }
 
+function resultCountText(shown, total) {
+  if (total > shown) return `${shown.toLocaleString()} / ${total.toLocaleString()} shown`;
+  return `${shown.toLocaleString()} shown`;
+}
+
+function loadMoreNote(hasMore) {
+  if (hasMore) return `<div class="builder-note grid-wide">Scroll to load more</div>`;
+  return "";
+}
+
+function isNearScrollBottom(element) {
+  return element.scrollTop + element.clientHeight >= element.scrollHeight - 240;
+}
+
 function renderCollectionCards() {
-  el.collectionResultCount.textContent = `${state.collectionResults.length.toLocaleString()} shown`;
-  el.collectionGrid.innerHTML = state.collectionResults.map((card, index) => `
+  el.collectionResultCount.textContent = resultCountText(state.collectionResults.length, state.collectionResultsTotal);
+  const cardsHtml = state.collectionResults.map((card, index) => `
     <article class="collection-card" data-collection-card="${index}" tabindex="0">
       <div class="builder-card-media">
         ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
@@ -1032,7 +1105,10 @@ function renderCollectionCards() {
         <button data-collection-plus="${escapeAttr(card.number)}">+</button>
       </div>
     </article>
-  `).join("") || `<div class="builder-note">No cards found.</div>`;
+  `).join("");
+  el.collectionGrid.innerHTML = cardsHtml
+    ? `${cardsHtml}${loadMoreNote(state.collectionResultsHasMore, state.collectionResultsLoading)}`
+    : `<div class="builder-note grid-wide">No cards found.</div>`;
 
   for (const tile of el.collectionGrid.querySelectorAll("[data-collection-card]")) {
     tile.addEventListener("click", () => openCardModal({ ...state.collectionResults[Number(tile.dataset.collectionCard)], qty: Number(state.collectionResults[Number(tile.dataset.collectionCard)]?.ownedQty || 0) }));
@@ -1120,8 +1196,8 @@ function clearBuilderFilters(search = true) {
 }
 
 function renderBuilderResults() {
-  el.builderResultCount.textContent = `${state.builderResults.length.toLocaleString()} shown`;
-  el.builderResults.innerHTML = state.builderResults.map((card, index) => {
+  el.builderResultCount.textContent = resultCountText(state.builderResults.length, state.builderResultsTotal);
+  const cardsHtml = state.builderResults.map((card, index) => {
     const selectedQty = builderQtyFor(card.number);
     return `
     <article class="builder-card ${selectedQty ? "in-deck" : ""}" data-builder-card="${index}" tabindex="0">
@@ -1136,7 +1212,10 @@ function renderBuilderResults() {
       <button data-builder-add="${index}">Add</button>
     </article>
   `;
-  }).join("") || `<div class="builder-note">No cards found.</div>`;
+  }).join("");
+  el.builderResults.innerHTML = cardsHtml
+    ? `${cardsHtml}${loadMoreNote(state.builderResultsHasMore, state.builderResultsLoading)}`
+    : `<div class="builder-note grid-wide">No cards found.</div>`;
 
   for (const tile of el.builderResults.querySelectorAll("[data-builder-card]")) {
     tile.addEventListener("click", () => openCardModal(normalizeBuilderCard(state.builderResults[Number(tile.dataset.builderCard)])));
@@ -1286,8 +1365,8 @@ function validateHololiveDeck(cards) {
   if (counts.main !== 50) issues.push("Hololive main deck should contain exactly 50 cards.");
   if (counts.cheer > 20) issues.push("Cheer deck should contain at most 20 cards.");
   for (const card of cards) {
-    if (Number(card.qty || 0) > 4 && !isHololiveExtraCard(card)) {
-      issues.push(`${card.number} has ${card.qty} copies. Maximum is 4 unless the card has Extra.`);
+    if (Number(card.qty || 0) > 4 && !isHololiveCheerCard(card) && !isHololiveExtraCard(card)) {
+      issues.push(`${card.number} has ${card.qty} copies. Maximum is 4 unless the card is Cheer or has Extra.`);
     }
   }
 
@@ -1373,6 +1452,10 @@ function primeHololiveOshiFilter() {
 
 function isOshiCard(card) {
   return String(card.cardType || card.section || "").toLowerCase().includes("oshi");
+}
+
+function isHololiveCheerCard(card) {
+  return String(card.cardType || card.section || "").toLowerCase().includes("cheer");
 }
 
 function isHololiveExtraCard(card) {
