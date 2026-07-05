@@ -5,10 +5,23 @@ const state = {
   builderCards: [],
   builderResults: [],
   builderSeries: [],
+  hololiveSets: [],
+  collection: { cards: {} },
+  collectionResults: [],
+};
+
+const BUILDER_FILTER_OPTIONS = {
+  "Weiss Schwarz": {
+    types: [["", "All"], ["Character", "Character"], ["Event", "Event"], ["Climax", "Climax"]],
+    colors: [["", "All"], ["yellow", "Yellow"], ["green", "Green"], ["red", "Red"], ["blue", "Blue"]],
+  },
+  "Hololive OCG": {
+    types: [["", "All"], ["Oshi", "Oshi"], ["holomem", "Holomem"], ["Support", "Support"], ["Cheer", "Cheer"]],
+    colors: [["", "All"], ["Y", "Yellow"], ["G", "Green"], ["R", "Red"], ["B", "Blue"], ["W", "White"], ["P", "Purple"]],
+  },
 };
 
 const el = {
-  cardCount: document.querySelector("#cardCount"),
   search: document.querySelector("#search"),
   gameFilter: document.querySelector("#gameFilter"),
   deckList: document.querySelector("#deckList"),
@@ -18,6 +31,7 @@ const el = {
   saveDeckBtn: document.querySelector("#saveDeckBtn"),
   deleteDeckBtn: document.querySelector("#deleteDeckBtn"),
   builderBtn: document.querySelector("#builderBtn"),
+  collectionBtn: document.querySelector("#collectionBtn"),
   ttsBtn: document.querySelector("#ttsBtn"),
   settingsBtn: document.querySelector("#settingsBtn"),
   nameInput: document.querySelector("#nameInput"),
@@ -34,6 +48,7 @@ const el = {
   resolveBtn: document.querySelector("#resolveBtn"),
   importStatus: document.querySelector("#importStatus"),
   summaryStats: document.querySelector("#summaryStats"),
+  missingCardsPanel: document.querySelector("#missingCardsPanel"),
   cardGrid: document.querySelector("#cardGrid"),
   log: document.querySelector("#log"),
   cardModal: document.querySelector("#cardModal"),
@@ -52,13 +67,18 @@ const el = {
   settingsLog: document.querySelector("#settingsLog"),
   builderModal: document.querySelector("#builderModal"),
   closeBuilderModal: document.querySelector("#closeBuilderModal"),
+  builderHeading: document.querySelector("#builderHeading"),
+  builderSubheading: document.querySelector("#builderSubheading"),
+  builderGameInput: document.querySelector("#builderGameInput"),
   builderSearchInput: document.querySelector("#builderSearchInput"),
+  builderSeriesLabel: document.querySelector("#builderSeriesLabel"),
   builderSeriesSelect: document.querySelector("#builderSeriesSelect"),
   builderSeriesButton: document.querySelector("#builderSeriesButton"),
   builderSeriesMenu: document.querySelector("#builderSeriesMenu"),
   builderSearchBtn: document.querySelector("#builderSearchBtn"),
   builderTypeFilter: document.querySelector("#builderTypeFilter"),
   builderColorFilter: document.querySelector("#builderColorFilter"),
+  builderLevelLabel: document.querySelector("#builderLevelLabel"),
   builderLevelMin: document.querySelector("#builderLevelMin"),
   builderLevelMax: document.querySelector("#builderLevelMax"),
   builderCostMin: document.querySelector("#builderCostMin"),
@@ -68,6 +88,7 @@ const el = {
   builderSoulMin: document.querySelector("#builderSoulMin"),
   builderSoulMax: document.querySelector("#builderSoulMax"),
   builderTriggerFilter: document.querySelector("#builderTriggerFilter"),
+  builderHideAltCards: document.querySelector("#builderHideAltCards"),
   builderClearFiltersBtn: document.querySelector("#builderClearFiltersBtn"),
   builderResultCount: document.querySelector("#builderResultCount"),
   builderDeckCount: document.querySelector("#builderDeckCount"),
@@ -76,6 +97,31 @@ const el = {
   builderDeckList: document.querySelector("#builderDeckList"),
   builderClearBtn: document.querySelector("#builderClearBtn"),
   builderApplyBtn: document.querySelector("#builderApplyBtn"),
+  collectionModal: document.querySelector("#collectionModal"),
+  closeCollectionModal: document.querySelector("#closeCollectionModal"),
+  collectionGameFilter: document.querySelector("#collectionGameFilter"),
+  collectionSeriesLabel: document.querySelector("#collectionSeriesLabel"),
+  collectionSeriesSelect: document.querySelector("#collectionSeriesSelect"),
+  collectionSeriesButton: document.querySelector("#collectionSeriesButton"),
+  collectionSeriesMenu: document.querySelector("#collectionSeriesMenu"),
+  collectionViewFilter: document.querySelector("#collectionViewFilter"),
+  collectionSearchInput: document.querySelector("#collectionSearchInput"),
+  collectionSearchBtn: document.querySelector("#collectionSearchBtn"),
+  collectionTypeFilter: document.querySelector("#collectionTypeFilter"),
+  collectionColorFilter: document.querySelector("#collectionColorFilter"),
+  collectionLevelMin: document.querySelector("#collectionLevelMin"),
+  collectionLevelMax: document.querySelector("#collectionLevelMax"),
+  collectionCostMin: document.querySelector("#collectionCostMin"),
+  collectionCostMax: document.querySelector("#collectionCostMax"),
+  collectionPowerMin: document.querySelector("#collectionPowerMin"),
+  collectionPowerMax: document.querySelector("#collectionPowerMax"),
+  collectionSoulMin: document.querySelector("#collectionSoulMin"),
+  collectionSoulMax: document.querySelector("#collectionSoulMax"),
+  collectionTriggerFilter: document.querySelector("#collectionTriggerFilter"),
+  collectionHideAltCards: document.querySelector("#collectionHideAltCards"),
+  collectionClearFiltersBtn: document.querySelector("#collectionClearFiltersBtn"),
+  collectionResultCount: document.querySelector("#collectionResultCount"),
+  collectionGrid: document.querySelector("#collectionGrid"),
 };
 
 await boot();
@@ -86,6 +132,7 @@ el.newDeckBtn.addEventListener("click", newDeck);
 el.saveDeckBtn.addEventListener("click", saveDeck);
 el.deleteDeckBtn.addEventListener("click", deleteSelectedDeck);
 el.builderBtn.addEventListener("click", openBuilderModal);
+el.collectionBtn.addEventListener("click", openCollectionModal);
 el.resolveBtn.addEventListener("click", resolveDeckText);
 el.encoreBtn.addEventListener("click", fillFromEncore);
 el.decklogBtn.addEventListener("click", fillFromDecklog);
@@ -97,6 +144,7 @@ el.buildWeissDbBtn.addEventListener("click", buildWeissCardDb);
 el.buildHololiveDbBtn.addEventListener("click", buildHololiveCardDb);
 el.saveSettingsBtn.addEventListener("click", saveSettings);
 el.closeBuilderModal.addEventListener("click", closeBuilderModal);
+el.builderGameInput.addEventListener("change", switchBuilderGame);
 el.builderSearchBtn.addEventListener("click", searchBuilderCards);
 el.builderSearchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") searchBuilderCards();
@@ -108,6 +156,17 @@ for (const input of builderFilterInputs()) input.addEventListener("change", sear
 el.builderClearFiltersBtn.addEventListener("click", clearBuilderFilters);
 el.builderClearBtn.addEventListener("click", clearBuilderDeck);
 el.builderApplyBtn.addEventListener("click", applyBuilderDeck);
+el.closeCollectionModal.addEventListener("click", closeCollectionModal);
+el.collectionSearchBtn.addEventListener("click", searchCollectionCards);
+el.collectionSearchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") searchCollectionCards();
+});
+el.collectionGameFilter.addEventListener("change", switchCollectionGame);
+el.collectionViewFilter.addEventListener("change", searchCollectionCards);
+el.collectionSeriesButton.addEventListener("click", toggleCollectionSeriesMenu);
+el.collectionSeriesMenu.addEventListener("click", selectCollectionSeriesFromMenu);
+for (const input of collectionFilterInputs()) input.addEventListener("change", searchCollectionCards);
+el.collectionClearFiltersBtn.addEventListener("click", clearCollectionFilters);
 el.cardModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-card]")) closeCardModal();
 });
@@ -119,6 +178,7 @@ el.builderModal.addEventListener("click", (event) => {
 });
 document.addEventListener("click", (event) => {
   if (!el.builderSeriesMenu.hidden && !event.target.closest(".builder-series-field")) closeBuilderSeriesMenu();
+  if (!el.collectionSeriesMenu.hidden && !event.target.closest(".builder-series-field")) closeCollectionSeriesMenu();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
@@ -134,13 +194,17 @@ document.addEventListener("keydown", (event) => {
     closeSettingsModal();
     return;
   }
+  if (!el.collectionModal.hidden) {
+    closeCollectionModal();
+    return;
+  }
   if (!el.builderModal.hidden) closeBuilderModal();
 });
 
 async function boot() {
-  const health = await api("/api/health");
-  el.cardCount.textContent = `${health.weissCards.toLocaleString()} Weiss cards`;
+  await api("/api/health");
   await loadSettings();
+  await loadCollection();
   await loadDecks();
   if (state.decks[0]) selectDeck(state.decks[0].id);
   else newDeck();
@@ -155,6 +219,11 @@ async function loadDecks() {
   const result = await api("/api/decks");
   state.decks = result.decks || [];
   renderDeckList();
+}
+
+async function loadCollection() {
+  const result = await api("/api/collection");
+  state.collection = result.collection || { cards: {} };
 }
 
 function renderDeckList() {
@@ -211,6 +280,7 @@ function newDeck() {
   el.sourceUrlInput.value = "";
   el.notesInput.value = "";
   el.deckText.value = "";
+  el.importStatus.classList.remove("bad");
   renderDeck(emptyDeck());
   renderDeckList();
   log("Paste a Weiss decklist, or fill it from Encore/Decklog, then import the decklist.");
@@ -224,6 +294,7 @@ async function resolveDeckText() {
     el.importStatus.textContent = result.missing.length
       ? `${result.missing.length} missing cards`
       : `Resolved ${result.totalCards} cards`;
+    el.importStatus.classList.toggle("bad", Boolean(result.missing.length));
     renderDeck({ ...formDeck(), cards: result.cards });
     if (result.missing.length) {
       log(`Missing:\n${result.missing.map((item) => `line ${item.line}: ${item.number}`).join("\n")}`);
@@ -354,6 +425,7 @@ function renderDeck(deck) {
 
   const cards = [...(deck.cards || [])].sort((a, b) => Number(isClimax(a)) - Number(isClimax(b)) || a.number.localeCompare(b.number));
   renderSummaryStats(deck, counts, cards.length);
+  renderMissingCards(deck);
 
   el.cardGrid.innerHTML = cards.map((card, index) => `
     <article class="card ${isClimax(card) ? "climax" : ""}" data-card-index="${index}" tabindex="0">
@@ -376,6 +448,51 @@ function renderDeck(deck) {
       }
     });
   }
+}
+
+function renderMissingCards(deck) {
+  if (!deck.cards?.length) {
+    el.missingCardsPanel.innerHTML = "";
+    return;
+  }
+
+  const missing = deckMissingFromCollection(deck);
+  if (!missing.length) {
+    el.missingCardsPanel.innerHTML = `
+      <details class="missing-details">
+        <summary><strong>Collection</strong><span class="ok">You own everything in this deck.</span></summary>
+      </details>
+    `;
+    return;
+  }
+
+  const total = missing.reduce((sum, card) => sum + card.missingQty, 0);
+  el.missingCardsPanel.innerHTML = `
+    <details class="missing-details">
+      <summary><strong>Needs buying</strong><span>${total} cards across ${missing.length} unique</span></summary>
+      <div class="missing-list">
+        ${missing.map((card) => `
+          <div>
+            <span>x${card.missingQty}</span>
+            <strong>${escapeHtml(card.name)}</strong>
+            <small>${escapeHtml(card.number)} - own ${card.ownedQty}/${card.required}</small>
+          </div>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function deckMissingFromCollection(deck) {
+  const owned = state.collection.cards || {};
+  return (deck.cards || [])
+    .map((card) => {
+      const required = Number(card.qty || 0);
+      const ownedQty = Number(owned[card.number] || 0);
+      return { ...card, required, ownedQty, missingQty: Math.max(0, required - ownedQty) };
+    })
+    .filter((card) => card.missingQty > 0)
+    .sort((a, b) => a.number.localeCompare(b.number));
 }
 
 function renderSummaryStats(deck, counts, uniqueCards) {
@@ -415,6 +532,7 @@ function openCardModal(card) {
     ["Soul", card.soul],
     ["Trigger", card.trigger],
     ["Rarity", card.rarity],
+    ["LIFE", card.life],
     ["Bloom", card.bloomLevel],
     ["HP", card.hp],
     ["Baton Pass", card.batonPass],
@@ -431,7 +549,7 @@ function openCardModal(card) {
   ` : "");
 
   el.modalCardText.innerHTML = cardRulesHtml(card);
-  el.cardModal.classList.toggle("over-builder", !el.builderModal.hidden);
+  el.cardModal.classList.toggle("over-builder", !el.builderModal.hidden || !el.collectionModal.hidden);
   el.cardModal.hidden = false;
 }
 
@@ -458,6 +576,14 @@ function cardRulesHtml(card) {
     lines.push([header, art.text].filter(Boolean).join("\n"));
   }
 
+  for (const skill of card.oshiSkills || []) {
+    const header = [skill.label, skill.name].filter(Boolean).join(": ");
+    lines.push([header, skill.text].filter(Boolean).join("\n"));
+  }
+
+  const extraText = card.extraText || card.extra?.text || "";
+  if (extraText) lines.push([card.extra?.label || "Extra", extraText].join("\n"));
+
   const text = lines.filter(Boolean).join("\n\n") || "No card text stored.";
   return isHololiveCard(card) ? energyHtml(text) : escapeHtml(text);
 }
@@ -471,7 +597,7 @@ function isHololiveCard(card) {
   return card.game === "Hololive OCG"
     || Array.isArray(card.arts)
     || Array.isArray(card.keywords)
-    || Boolean(card.batonPass || card.bloomLevel || card.hp);
+    || Boolean(card.batonPass || card.bloomLevel || card.hp || card.life || card.extraText);
 }
 
 function energyHtml(value) {
@@ -519,9 +645,6 @@ async function buildWeissCardDb() {
       renderBuildJob(job);
 
       if (!job || job.status !== "running") {
-        if (job?.status === "complete") {
-          el.cardCount.textContent = `${Number(job.weissCards || 0).toLocaleString()} Weiss cards`;
-        }
         break;
       }
     }
@@ -588,14 +711,23 @@ function renderBuildJob(job, game = "weiss") {
 }
 
 async function openBuilderModal() {
-  el.gameInput.value = "Weiss Schwarz";
+  const game = el.gameInput.value === "Hololive OCG" ? "Hololive OCG" : "Weiss Schwarz";
+  el.gameInput.value = game;
+  el.builderGameInput.value = game;
   const current = state.resolved?.cards?.length ? state.resolved.cards : selectedDeck()?.cards || [];
   state.builderCards = current
-    .filter((card) => card.game === "Weiss Schwarz" || !card.game)
+    .filter((card) => (card.game || game) === game)
     .map((card) => ({ ...card, qty: Number(card.qty || 1) }));
   el.builderModal.hidden = false;
   await loadBuilderSeries();
+  await loadHololiveSets();
+  renderBuilderSeriesOptions();
   el.builderSeriesSelect.value = builderSeriesId();
+  syncBuilderGameUi();
+  if (game === "Hololive OCG" && !hasHololiveOshi(state.builderCards)) {
+    clearBuilderFilters(false);
+    primeHololiveOshiFilter();
+  }
   syncBuilderSeriesButton();
   renderBuilderDeck();
   searchBuilderCards();
@@ -610,11 +742,14 @@ async function searchBuilderCards() {
   setBusy(el.builderSearchBtn, true, "Searching...");
   try {
     const params = new URLSearchParams({
+      game: el.builderGameInput.value,
       q: el.builderSearchInput.value.trim(),
       title: el.builderSeriesSelect.value,
     });
     appendBuilderFilterParams(params);
-    const result = await api(`/api/weiss/search?${params.toString()}`);
+    const result = el.builderGameInput.value === "Hololive OCG"
+      ? await api(`/api/collection/cards/search?${params.toString()}`)
+      : await api(`/api/weiss/search?${params.toString()}`);
     state.builderResults = result.cards || [];
     renderBuilderResults();
   } catch (error) {
@@ -633,26 +768,76 @@ async function loadBuilderSeries() {
 
 function renderBuilderSeriesOptions() {
   const current = el.builderSeriesSelect.value || builderSeriesId();
+  const options = builderSeriesOptions();
+  const label = builderSeriesKind();
+  el.builderSeriesLabel.textContent = label;
   el.builderSeriesSelect.innerHTML = [
-    `<option value="">All series</option>`,
-    ...state.builderSeries.map((series) => {
-      const label = builderSeriesLabel(series);
-      return `<option value="${escapeAttr(series.id || series.code)}">${escapeHtml(label)}</option>`;
+    `<option value="">All ${label.toLowerCase()}</option>`,
+    ...options.map((series) => {
+      const optionLabel = builderSeriesLabel(series);
+      return `<option value="${escapeAttr(series.id || series.code || series.name)}">${escapeHtml(optionLabel)}</option>`;
     }),
   ].join("");
   el.builderSeriesMenu.innerHTML = [
-    `<button type="button" data-builder-series="">All series</button>`,
-    ...state.builderSeries.map((series) => {
-      const label = builderSeriesLabel(series);
-      return `<button type="button" data-builder-series="${escapeAttr(series.id || series.code)}">${escapeHtml(label)}</button>`;
+    `<button type="button" data-builder-series="">All ${label.toLowerCase()}</button>`,
+    ...options.map((series) => {
+      const optionLabel = builderSeriesLabel(series);
+      return `<button type="button" data-builder-series="${escapeAttr(series.id || series.code || series.name)}">${escapeHtml(optionLabel)}</button>`;
     }),
   ].join("");
-  el.builderSeriesSelect.value = current;
+  el.builderSeriesSelect.value = [...el.builderSeriesSelect.options].some((option) => option.value === current) ? current : "";
   syncBuilderSeriesButton();
 }
 
 function builderSeriesLabel(series) {
   return `${series.name || series.code} - ${Number(series.cards || 0).toLocaleString()} cards`;
+}
+
+function builderSeriesOptions() {
+  return el.builderGameInput.value === "Hololive OCG" ? state.hololiveSets : state.builderSeries;
+}
+
+function builderSeriesKind() {
+  return el.builderGameInput.value === "Hololive OCG" ? "Card set" : "Series";
+}
+
+async function switchBuilderGame() {
+  el.gameInput.value = el.builderGameInput.value;
+  if (el.builderGameInput.value === "Hololive OCG") await loadHololiveSets();
+  state.builderCards = state.builderCards.filter((card) => (card.game || el.builderGameInput.value) === el.builderGameInput.value);
+  el.builderSeriesSelect.value = "";
+  renderBuilderSeriesOptions();
+  syncBuilderGameUi();
+  clearBuilderFilters(false);
+  primeHololiveOshiFilter();
+  renderBuilderDeck();
+  searchBuilderCards();
+}
+
+function syncBuilderGameUi() {
+  const isHolo = el.builderGameInput.value === "Hololive OCG";
+  el.builderHeading.textContent = isHolo ? "Hololive Deck Builder" : "Weiss Deck Builder";
+  el.builderSubheading.textContent = isHolo
+    ? "Choose a card set, then build Oshi / Main / Cheer."
+    : "Neo-Standard: choose a series, build to 50 cards, max 8 climaxes, max 4 copies.";
+  el.builderLevelLabel.textContent = isHolo ? "Bloom" : "Level";
+  for (const item of document.querySelectorAll(".builder-weiss-filter")) item.hidden = isHolo;
+  syncBuilderFilterOptions();
+}
+
+function syncBuilderFilterOptions() {
+  const game = el.builderGameInput.value === "Hololive OCG" ? "Hololive OCG" : "Weiss Schwarz";
+  const options = BUILDER_FILTER_OPTIONS[game];
+  replaceSelectOptions(el.builderTypeFilter, options.types);
+  replaceSelectOptions(el.builderColorFilter, options.colors);
+}
+
+function replaceSelectOptions(select, options) {
+  const current = select.value;
+  select.innerHTML = options
+    .map(([value, label]) => `<option value="${escapeAttr(value)}">${escapeHtml(label)}</option>`)
+    .join("");
+  select.value = [...select.options].some((option) => option.value === current) ? current : "";
 }
 
 function toggleBuilderSeriesMenu(event) {
@@ -675,7 +860,216 @@ function selectBuilderSeriesFromMenu(event) {
 
 function syncBuilderSeriesButton() {
   const selected = selectedBuilderSeries();
-  el.builderSeriesButton.textContent = selected ? builderSeriesLabel(selected) : "All series";
+  el.builderSeriesButton.textContent = selected ? builderSeriesLabel(selected) : `All ${builderSeriesKind().toLowerCase()}`;
+}
+
+async function openCollectionModal() {
+  el.collectionModal.hidden = false;
+  await loadBuilderSeries();
+  await loadHololiveSets();
+  renderCollectionSeriesOptions();
+  syncCollectionFilterVisibility();
+  searchCollectionCards();
+}
+
+function closeCollectionModal() {
+  closeCollectionSeriesMenu();
+  el.collectionModal.hidden = true;
+}
+
+function renderCollectionSeriesOptions() {
+  const current = el.collectionSeriesSelect.value;
+  const options = collectionSeriesOptions();
+  const label = collectionSeriesKind();
+  el.collectionSeriesLabel.textContent = label;
+  el.collectionSeriesSelect.innerHTML = [
+    `<option value="">All ${label.toLowerCase()}</option>`,
+    ...options.map((series) => `<option value="${escapeAttr(series.id || series.code || series.name)}">${escapeHtml(collectionSeriesOptionLabel(series))}</option>`),
+  ].join("");
+  el.collectionSeriesMenu.innerHTML = [
+    `<button type="button" data-collection-series="">All ${label.toLowerCase()}</button>`,
+    ...options.map((series) => `<button type="button" data-collection-series="${escapeAttr(series.id || series.code || series.name)}">${escapeHtml(collectionSeriesOptionLabel(series))}</button>`),
+  ].join("");
+  el.collectionSeriesSelect.value = [...el.collectionSeriesSelect.options].some((option) => option.value === current) ? current : "";
+  syncCollectionSeriesButton();
+}
+
+async function loadHololiveSets() {
+  if (state.hololiveSets.length) return;
+  const result = await api("/api/collection/hololive/sets");
+  state.hololiveSets = result.sets || [];
+}
+
+function collectionSeriesOptions() {
+  return el.collectionGameFilter.value === "Hololive OCG" ? state.hololiveSets : state.builderSeries;
+}
+
+function collectionSeriesKind() {
+  return el.collectionGameFilter.value === "Hololive OCG" ? "Card set" : "Series";
+}
+
+function collectionSeriesOptionLabel(series) {
+  return `${series.name || series.code} - ${Number(series.cards || 0).toLocaleString()} cards`;
+}
+
+function toggleCollectionSeriesMenu(event) {
+  event.stopPropagation();
+  el.collectionSeriesMenu.hidden = !el.collectionSeriesMenu.hidden;
+}
+
+function closeCollectionSeriesMenu() {
+  el.collectionSeriesMenu.hidden = true;
+}
+
+function selectCollectionSeriesFromMenu(event) {
+  const button = event.target.closest("[data-collection-series]");
+  if (!button) return;
+  el.collectionSeriesSelect.value = button.dataset.collectionSeries;
+  syncCollectionSeriesButton();
+  closeCollectionSeriesMenu();
+  searchCollectionCards();
+}
+
+function syncCollectionSeriesButton() {
+  const selected = collectionSeriesOptions().find((series) => String(series.id || series.code || series.name) === el.collectionSeriesSelect.value);
+  el.collectionSeriesButton.textContent = selected ? collectionSeriesOptionLabel(selected) : `All ${collectionSeriesKind().toLowerCase()}`;
+}
+
+async function searchCollectionCards() {
+  setBusy(el.collectionSearchBtn, true, "Searching...");
+  try {
+    const params = new URLSearchParams({
+      game: el.collectionGameFilter.value,
+      q: el.collectionSearchInput.value.trim(),
+      title: el.collectionSeriesSelect.value,
+      view: el.collectionViewFilter.value,
+    });
+    appendCollectionFilterParams(params);
+    const result = await api(`/api/collection/cards/search?${params.toString()}`);
+    state.collectionResults = result.cards || [];
+    renderCollectionCards();
+  } catch (error) {
+    el.collectionGrid.innerHTML = `<div class="builder-note bad">${escapeHtml(error.message)}</div>`;
+  } finally {
+    setBusy(el.collectionSearchBtn, false, "Search");
+  }
+}
+
+function switchCollectionGame() {
+  el.collectionSeriesSelect.value = "";
+  renderCollectionSeriesOptions();
+  syncCollectionFilterVisibility();
+  clearCollectionFilters(false);
+  searchCollectionCards();
+}
+
+function syncCollectionFilterVisibility() {
+  const isWeiss = el.collectionGameFilter.value === "Weiss Schwarz";
+  for (const item of document.querySelectorAll(".collection-weiss-filter")) item.hidden = !isWeiss;
+}
+
+function collectionFilterInputs() {
+  return [
+    el.collectionTypeFilter,
+    el.collectionColorFilter,
+    el.collectionLevelMin,
+    el.collectionLevelMax,
+    el.collectionCostMin,
+    el.collectionCostMax,
+    el.collectionPowerMin,
+    el.collectionPowerMax,
+    el.collectionSoulMin,
+    el.collectionSoulMax,
+    el.collectionTriggerFilter,
+    el.collectionHideAltCards,
+  ];
+}
+
+function appendCollectionFilterParams(params) {
+  const values = {
+    type: el.collectionTypeFilter.value,
+    color: el.collectionColorFilter.value,
+    levelMin: el.collectionLevelMin.value,
+    levelMax: el.collectionLevelMax.value,
+    costMin: el.collectionCostMin.value,
+    costMax: el.collectionCostMax.value,
+    powerMin: el.collectionPowerMin.value,
+    powerMax: el.collectionPowerMax.value,
+    soulMin: el.collectionSoulMin.value,
+    soulMax: el.collectionSoulMax.value,
+    trigger: el.collectionTriggerFilter.value,
+    hideAlt: el.collectionHideAltCards.checked ? "1" : "",
+  };
+
+  for (const [key, value] of Object.entries(values)) {
+    if (String(value || "").trim()) params.set(key, value);
+  }
+}
+
+function clearCollectionFilters(search = true) {
+  for (const input of collectionFilterInputs()) {
+    if (input.type === "checkbox") input.checked = false;
+    else input.value = "";
+  }
+  if (search) searchCollectionCards();
+}
+
+function renderCollectionCards() {
+  el.collectionResultCount.textContent = `${state.collectionResults.length.toLocaleString()} shown`;
+  el.collectionGrid.innerHTML = state.collectionResults.map((card, index) => `
+    <article class="collection-card" data-collection-card="${index}" tabindex="0">
+      <div class="builder-card-media">
+        ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+        ${card.ownedQty ? `<span>x${card.ownedQty}</span>` : ""}
+      </div>
+      <div>
+        <strong>${escapeHtml(card.name)}</strong>
+        <span>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")} ${escapeHtml(card.color || "")}</span>
+      </div>
+      <div class="collection-controls">
+        <button data-collection-minus="${escapeAttr(card.number)}">-</button>
+        <input data-collection-qty="${escapeAttr(card.number)}" type="number" min="0" value="${Number(card.ownedQty || 0)}">
+        <button data-collection-plus="${escapeAttr(card.number)}">+</button>
+      </div>
+    </article>
+  `).join("") || `<div class="builder-note">No cards found.</div>`;
+
+  for (const tile of el.collectionGrid.querySelectorAll("[data-collection-card]")) {
+    tile.addEventListener("click", () => openCardModal({ ...state.collectionResults[Number(tile.dataset.collectionCard)], qty: Number(state.collectionResults[Number(tile.dataset.collectionCard)]?.ownedQty || 0) }));
+  }
+
+  for (const button of el.collectionGrid.querySelectorAll("[data-collection-minus]")) {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      changeOwnedQty(button.dataset.collectionMinus, -1);
+    });
+  }
+  for (const button of el.collectionGrid.querySelectorAll("[data-collection-plus]")) {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      changeOwnedQty(button.dataset.collectionPlus, 1);
+    });
+  }
+  for (const input of el.collectionGrid.querySelectorAll("[data-collection-qty]")) {
+    input.addEventListener("click", (event) => event.stopPropagation());
+    input.addEventListener("change", () => setOwnedQty(input.dataset.collectionQty, Number(input.value || 0)));
+  }
+}
+
+async function changeOwnedQty(number, delta) {
+  const current = Number(state.collection.cards?.[number] || 0);
+  await setOwnedQty(number, Math.max(0, current + delta));
+}
+
+async function setOwnedQty(number, qty) {
+  const result = await api("/api/collection/cards", { number, qty });
+  state.collection = result.collection || { cards: {} };
+  for (const card of state.collectionResults) {
+    if (card.number === number) card.ownedQty = Number(state.collection.cards[number] || 0);
+  }
+  if (el.collectionViewFilter.value === "all") renderCollectionCards();
+  else await searchCollectionCards();
+  renderDeck(formDeck());
 }
 
 function builderFilterInputs() {
@@ -691,22 +1085,25 @@ function builderFilterInputs() {
     el.builderSoulMin,
     el.builderSoulMax,
     el.builderTriggerFilter,
+    el.builderHideAltCards,
   ];
 }
 
 function appendBuilderFilterParams(params) {
+  const isHolo = el.builderGameInput.value === "Hololive OCG";
   const values = {
     type: el.builderTypeFilter.value,
     color: el.builderColorFilter.value,
     levelMin: el.builderLevelMin.value,
     levelMax: el.builderLevelMax.value,
-    costMin: el.builderCostMin.value,
-    costMax: el.builderCostMax.value,
-    powerMin: el.builderPowerMin.value,
-    powerMax: el.builderPowerMax.value,
-    soulMin: el.builderSoulMin.value,
-    soulMax: el.builderSoulMax.value,
-    trigger: el.builderTriggerFilter.value,
+    costMin: isHolo ? "" : el.builderCostMin.value,
+    costMax: isHolo ? "" : el.builderCostMax.value,
+    powerMin: isHolo ? "" : el.builderPowerMin.value,
+    powerMax: isHolo ? "" : el.builderPowerMax.value,
+    soulMin: isHolo ? "" : el.builderSoulMin.value,
+    soulMax: isHolo ? "" : el.builderSoulMax.value,
+    trigger: isHolo ? "" : el.builderTriggerFilter.value,
+    hideAlt: !isHolo && el.builderHideAltCards.checked ? "1" : "",
   };
 
   for (const [key, value] of Object.entries(values)) {
@@ -714,23 +1111,32 @@ function appendBuilderFilterParams(params) {
   }
 }
 
-function clearBuilderFilters() {
-  for (const input of builderFilterInputs()) input.value = "";
-  searchBuilderCards();
+function clearBuilderFilters(search = true) {
+  for (const input of builderFilterInputs()) {
+    if (input.type === "checkbox") input.checked = false;
+    else input.value = "";
+  }
+  if (search) searchBuilderCards();
 }
 
 function renderBuilderResults() {
   el.builderResultCount.textContent = `${state.builderResults.length.toLocaleString()} shown`;
-  el.builderResults.innerHTML = state.builderResults.map((card, index) => `
-    <article class="builder-card" data-builder-card="${index}" tabindex="0">
-      ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+  el.builderResults.innerHTML = state.builderResults.map((card, index) => {
+    const selectedQty = builderQtyFor(card.number);
+    return `
+    <article class="builder-card ${selectedQty ? "in-deck" : ""}" data-builder-card="${index}" tabindex="0">
+      <div class="builder-card-media">
+        ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+        ${selectedQty ? `<span>x${selectedQty}</span>` : ""}
+      </div>
       <div>
         <strong>${escapeHtml(card.name)}</strong>
         <span>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")} ${escapeHtml(card.color || "")}</span>
       </div>
       <button data-builder-add="${index}">Add</button>
     </article>
-  `).join("") || `<div class="builder-note">No cards found.</div>`;
+  `;
+  }).join("") || `<div class="builder-note">No cards found.</div>`;
 
   for (const tile of el.builderResults.querySelectorAll("[data-builder-card]")) {
     tile.addEventListener("click", () => openCardModal(normalizeBuilderCard(state.builderResults[Number(tile.dataset.builderCard)])));
@@ -756,9 +1162,17 @@ function addBuilderCard(card) {
   if (existing) existing.qty += 1;
   else state.builderCards.push(normalizeBuilderCard(card));
 
-  if (!el.builderSeriesSelect.value) el.builderSeriesSelect.value = seriesIdForCodes([titleCode(card.number)]);
+  if (el.builderGameInput.value !== "Hololive OCG" && !el.builderSeriesSelect.value) {
+    el.builderSeriesSelect.value = seriesIdForCodes([titleCode(card.number)]);
+  }
   syncBuilderSeriesButton();
   renderBuilderDeck();
+  if (el.builderGameInput.value === "Hololive OCG" && isOshiCard(card) && el.builderTypeFilter.value) {
+    clearBuilderFilters(false);
+    searchBuilderCards();
+  } else {
+    renderBuilderResults();
+  }
 }
 
 function changeBuilderQty(number, delta) {
@@ -767,6 +1181,11 @@ function changeBuilderQty(number, delta) {
   card.qty += delta;
   if (card.qty <= 0) state.builderCards = state.builderCards.filter((item) => item.number !== number);
   renderBuilderDeck();
+  renderBuilderResults();
+}
+
+function builderQtyFor(number) {
+  return Number(state.builderCards.find((card) => card.number === number)?.qty || 0);
 }
 
 function renderBuilderDeck() {
@@ -817,14 +1236,14 @@ function renderBuilderDeck() {
 }
 
 function renderBuilderValidation() {
-  const v = validateWeissNeoStandard(state.builderCards, selectedBuilderSeries());
+  const v = el.builderGameInput.value === "Hololive OCG"
+    ? validateHololiveDeck(state.builderCards)
+    : validateWeissNeoStandard(state.builderCards, selectedBuilderSeries());
   el.builderValidation.innerHTML = `
     <div class="builder-counts">
-      <span class="${v.total === 50 ? "ok" : "bad"}">Total ${v.total}/50</span>
-      <span class="${v.climax <= 8 ? "ok" : "bad"}">Climax ${v.climax}/8</span>
-      <span class="${v.titleOk ? "ok" : "bad"}">Series ${escapeHtml(v.title || "-")}</span>
+      ${v.counts.map((count) => `<span class="${count.ok ? "ok" : "bad"}">${escapeHtml(count.label)}</span>`).join("")}
     </div>
-    ${v.issues.length ? `<ul>${v.issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>` : `<div class="ok">Neo-Standard checks pass.</div>`}
+    ${v.issues.length ? `<ul>${v.issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>` : `<div class="ok">${escapeHtml(v.passText)}</div>`}
   `;
 }
 
@@ -850,6 +1269,35 @@ function validateWeissNeoStandard(cards, selectedSeries) {
     climax,
     title: selectedSeries ? `${selectedSeries.name} (${(selectedSeries.codes || []).join(", ")})` : titles[0] || "",
     titleOk: allowedCodes.size ? outsideSeries.length === 0 : titles.length <= 1,
+    counts: [
+      { label: `Total ${total}/50`, ok: total === 50 },
+      { label: `Climax ${climax}/8`, ok: climax <= 8 },
+      { label: `Series ${selectedSeries ? `${selectedSeries.name} (${(selectedSeries.codes || []).join(", ")})` : titles[0] || "-"}`, ok: allowedCodes.size ? outsideSeries.length === 0 : titles.length <= 1 },
+    ],
+    passText: "Neo-Standard checks pass.",
+    issues,
+  };
+}
+
+function validateHololiveDeck(cards) {
+  const counts = deckCounts({ game: "Hololive OCG", cards });
+  const issues = [];
+  if (counts.oshi !== 1) issues.push("Hololive decks should have exactly 1 Oshi card.");
+  if (counts.main !== 50) issues.push("Hololive main deck should contain exactly 50 cards.");
+  if (counts.cheer > 20) issues.push("Cheer deck should contain at most 20 cards.");
+  for (const card of cards) {
+    if (Number(card.qty || 0) > 4 && !isHololiveExtraCard(card)) {
+      issues.push(`${card.number} has ${card.qty} copies. Maximum is 4 unless the card has Extra.`);
+    }
+  }
+
+  return {
+    counts: [
+      { label: `Oshi ${counts.oshi}/1`, ok: counts.oshi === 1 },
+      { label: `Main ${counts.main}/50`, ok: counts.main === 50 },
+      { label: `Cheer ${counts.cheer}/20`, ok: counts.cheer <= 20 },
+    ],
+    passText: "Hololive deck checks pass.",
     issues,
   };
 }
@@ -857,11 +1305,14 @@ function validateWeissNeoStandard(cards, selectedSeries) {
 function clearBuilderDeck() {
   if (!confirm("Clear builder deck?")) return;
   state.builderCards = [];
+  primeHololiveOshiFilter();
   renderBuilderDeck();
+  searchBuilderCards();
 }
 
 function applyBuilderDeck() {
   const cards = state.builderCards.map((card) => ({ ...card }));
+  el.gameInput.value = el.builderGameInput.value;
   state.resolved = {
     cards,
     totalCards: cards.reduce((sum, card) => sum + Number(card.qty || 0), 0),
@@ -876,27 +1327,73 @@ function applyBuilderDeck() {
 }
 
 function normalizeBuilderCard(card) {
+  const game = el.builderGameInput.value;
   return {
     qty: 1,
     number: card.number,
     name: card.name,
-    game: "Weiss Schwarz",
-    section: isClimax(card) ? "Climax" : card.cardType || "Main",
+    game,
+    section: builderSection(card, game),
     cardType: card.cardType || "",
     color: card.color || "",
     level: card.level || "",
+    bloomLevel: card.bloomLevel || "",
     cost: card.cost || "",
     power: card.power || "",
+    hp: card.hp || "",
+    life: card.life || "",
+    batonPass: card.batonPass || "",
     soul: card.soul || "",
     trigger: card.trigger || "",
     rarity: card.rarity || "",
-    text: card.text || "",
+    text: card.text || card.abilityText || "",
+    cardSet: card.cardSet || "",
+    keywords: Array.isArray(card.keywords) ? card.keywords : [],
+    arts: Array.isArray(card.arts) ? card.arts : [],
+    oshiSkills: Array.isArray(card.oshiSkills) ? card.oshiSkills : [],
+    extra: card.extra || { label: "", text: "" },
+    extraText: card.extraText || card.extra?.text || "",
+    isExtra: Boolean(card.isExtra || card.extraText || card.extra?.text),
+    tags: card.tags || "",
+    tagsList: Array.isArray(card.tagsList) ? card.tagsList : [],
     imageUrl: card.imageUrl || "",
     detailUrl: card.detailUrl || "",
   };
 }
 
+function hasHololiveOshi(cards) {
+  return cards.some(isOshiCard);
+}
+
+function primeHololiveOshiFilter() {
+  if (el.builderGameInput.value === "Hololive OCG" && !hasHololiveOshi(state.builderCards)) {
+    el.builderTypeFilter.value = "Oshi";
+  }
+}
+
+function isOshiCard(card) {
+  return String(card.cardType || card.section || "").toLowerCase().includes("oshi");
+}
+
+function isHololiveExtraCard(card) {
+  return Boolean(card.isExtra)
+    || /you may include any number/i.test(`${card.extraText || ""} ${card.extra?.text || ""}`);
+}
+
+function builderSection(card, game) {
+  if (game !== "Hololive OCG") return isClimax(card) ? "Climax" : card.cardType || "Main";
+  const type = String(card.cardType || "").toLowerCase();
+  if (type.includes("oshi")) return "Oshi";
+  if (type.includes("cheer")) return "Cheer";
+  return "Main";
+}
+
 function builderSeriesId() {
+  if (el.builderGameInput.value === "Hololive OCG") {
+    const sets = [...new Set(state.builderCards.flatMap((card) => String(card.cardSet || "").split(/\r?\n/).map((set) => set.trim()).filter(Boolean)))];
+    const match = state.hololiveSets.find((set) => sets.includes(set.name));
+    return match?.id || "";
+  }
   const codes = [...new Set(state.builderCards.map((card) => titleCode(card.number)).filter(Boolean))];
   return seriesIdForCodes(codes);
 }
@@ -913,7 +1410,7 @@ function seriesIdForCodes(codes) {
 
 function selectedBuilderSeries() {
   const selected = el.builderSeriesSelect.value;
-  return state.builderSeries.find((series) => String(series.id || series.code) === selected) || null;
+  return builderSeriesOptions().find((series) => String(series.id || series.code || series.name) === selected) || null;
 }
 
 function titleCode(number) {

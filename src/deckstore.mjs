@@ -78,12 +78,25 @@ function normalizeCard(card) {
     cardType: String(card.cardType || ""),
     color: String(card.color || ""),
     level: String(card.level || ""),
+    bloomLevel: String(card.bloomLevel || ""),
     cost: String(card.cost || ""),
     power: String(card.power || ""),
+    hp: String(card.hp || ""),
+    life: String(card.life || ""),
+    batonPass: String(card.batonPass || ""),
     soul: String(card.soul || ""),
     trigger: String(card.trigger || ""),
     rarity: String(card.rarity || card.rare || ""),
     text: String(card.text || card.cardText || ""),
+    cardSet: String(card.cardSet || ""),
+    keywords: Array.isArray(card.keywords) ? card.keywords : [],
+    arts: Array.isArray(card.arts) ? card.arts : [],
+    oshiSkills: Array.isArray(card.oshiSkills) ? card.oshiSkills : [],
+    extra: card.extra && typeof card.extra === "object" ? card.extra : { label: "", text: "" },
+    extraText: String(card.extraText || ""),
+    isExtra: Boolean(card.isExtra),
+    tags: String(card.tags || ""),
+    tagsList: Array.isArray(card.tagsList) ? card.tagsList : [],
     imageUrl: String(card.imageUrl || ""),
     detailUrl: String(card.detailUrl || ""),
   };
@@ -97,4 +110,3 @@ function preferredImage(cards) {
 function isClimax(card) {
   return String(card?.cardType || card?.section || "").toLowerCase().includes("climax");
 }
-

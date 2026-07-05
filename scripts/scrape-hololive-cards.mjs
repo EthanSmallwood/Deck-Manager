@@ -82,6 +82,8 @@ function parseCards(html, pageUrl) {
     const details = detailPairs(block);
     const keywords = keywordBlocks(block);
     const arts = artsBlocks(block);
+    const oshiSkills = oshiSkillBlocks(block);
+    const extra = extraBlock(block);
     const imageUrl = imageSrc(block, pageUrl);
     const imagePath = imageUrl ? new URL(imageUrl).pathname.replace(/^\/wp-content\/images\/cardlist\//, "") : "";
     const tags = firstDetail(details, "Tag");
@@ -98,12 +100,17 @@ function parseCards(html, pageUrl) {
       rarity: firstDetail(details, "Rarity"),
       cardSet: firstDetail(details, "Card Set"),
       color: normalizeEnergyText(firstDetail(details, "Color", "Attribute")),
+      life: firstDetail(details, "LIFE", "Life"),
       bloomLevel: firstDetail(details, "Bloom Level"),
       hp: firstDetail(details, "HP"),
       batonPass: normalizeEnergyText(firstDetail(details, "Baton Pass")),
       abilityText: firstDetail(details, "Ability Text"),
       keywords,
       arts,
+      oshiSkills,
+      extra,
+      extraText: extra.text,
+      isExtra: Boolean(extra.text),
       tags,
       tagsList: tags.match(/#[^\s#]+/g) || [],
       illustrator: firstDetail(details, "Illustrator"),
@@ -229,6 +236,29 @@ function artsBlocks(html) {
   return [...html.matchAll(/<div[^>]+class=["'][^"']*\barts\b[^"']*["'][^>]*>\s*<p>[\s\S]*?<\/p>\s*<p>([\s\S]*?)<\/p>\s*<\/div>/gi)]
     .map((match) => parseArtsBlock(match[1]))
     .filter((item) => item.name || item.damage || item.cost.length || item.text);
+}
+
+function oshiSkillBlocks(html) {
+  return [...html.matchAll(/<div[^>]+class=["'][^"']*\b(?:oshi|sp)\b[^"']*\bskill\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)]
+    .map((match) => {
+      const paragraphs = [...match[1].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map((item) => item[1]);
+      const label = cleanText(paragraphs[0] || "");
+      const body = paragraphs[1] || "";
+      const name = cleanText(body.match(/<span[^>]*>([\s\S]*?)<\/span>/i)?.[1] || "");
+      const text = cleanText(body.replace(/<span[^>]*>[\s\S]*?<\/span>/i, ""));
+      return { label, name, text };
+    })
+    .filter((item) => item.label || item.name || item.text);
+}
+
+function extraBlock(html) {
+  const match = html.match(/<div[^>]+class=["'][^"']*\bextra\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+  if (!match) return { label: "", text: "" };
+  const paragraphs = [...match[1].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map((item) => cleanText(item[1]));
+  return {
+    label: paragraphs[0] || "Extra",
+    text: paragraphs.slice(1).join("\n").trim(),
+  };
 }
 
 function parseNamedTextBlock(html) {

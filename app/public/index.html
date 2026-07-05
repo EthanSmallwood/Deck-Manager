@@ -11,7 +11,6 @@
     <aside class="sidebar">
       <div class="brand">
         <h1>Deckmanager</h1>
-        <span id="cardCount">Loading...</span>
       </div>
 
       <div class="filters">
@@ -37,6 +36,7 @@
           <button id="saveDeckBtn">Save</button>
           <button id="deleteDeckBtn">Delete</button>
           <button id="builderBtn">Builder</button>
+          <button id="collectionBtn">Collection</button>
           <button id="ttsBtn">TTS</button>
           <button id="settingsBtn">Settings</button>
         </div>
@@ -98,6 +98,7 @@
       </section>
 
       <section id="summaryStats" class="summary"></section>
+      <section id="missingCardsPanel" class="missing-panel"></section>
 
       <section id="cardGrid" class="card-grid"></section>
       <pre id="log" class="log"></pre>
@@ -162,14 +163,21 @@
     <article class="builder-dialog">
       <header class="card-dialog-header">
         <div>
-          <h3>Weiss Deck Builder</h3>
-          <p>Neo-Standard: choose a series, build to 50 cards, max 8 climaxes, max 4 copies.</p>
+          <h3 id="builderHeading">Deck Builder</h3>
+          <p id="builderSubheading">Choose a game and build a deck.</p>
         </div>
         <button id="closeBuilderModal" aria-label="Close builder">Close</button>
       </header>
       <section class="builder-toolbar">
+        <label>
+          Game
+          <select id="builderGameInput">
+            <option>Weiss Schwarz</option>
+            <option>Hololive OCG</option>
+          </select>
+        </label>
         <label class="builder-series-field">
-          Series
+          <span id="builderSeriesLabel">Series</span>
           <select id="builderSeriesSelect" hidden></select>
           <button id="builderSeriesButton" class="builder-series-button" type="button">All series</button>
           <div id="builderSeriesMenu" class="builder-series-menu" hidden></div>
@@ -186,43 +194,34 @@
           <label>
             Card Type
             <select id="builderTypeFilter">
-              <option value="">All</option>
-              <option>Character</option>
-              <option>Event</option>
-              <option>Climax</option>
             </select>
           </label>
           <label>
             Color
             <select id="builderColorFilter">
-              <option value="">All</option>
-              <option value="yellow">Yellow</option>
-              <option value="green">Green</option>
-              <option value="red">Red</option>
-              <option value="blue">Blue</option>
             </select>
           </label>
           <div class="builder-filter-range">
-            <span>Level</span>
+            <span id="builderLevelLabel">Level</span>
             <input id="builderLevelMin" type="number" min="0" max="3" placeholder="Min">
             <input id="builderLevelMax" type="number" min="0" max="3" placeholder="Max">
           </div>
-          <div class="builder-filter-range">
+          <div class="builder-filter-range builder-weiss-filter">
             <span>Cost</span>
             <input id="builderCostMin" type="number" min="0" placeholder="Min">
             <input id="builderCostMax" type="number" min="0" placeholder="Max">
           </div>
-          <div class="builder-filter-range">
+          <div class="builder-filter-range builder-weiss-filter">
             <span>Power</span>
             <input id="builderPowerMin" type="number" min="0" step="500" placeholder="Min">
             <input id="builderPowerMax" type="number" min="0" step="500" placeholder="Max">
           </div>
-          <div class="builder-filter-range">
+          <div class="builder-filter-range builder-weiss-filter">
             <span>Soul</span>
             <input id="builderSoulMin" type="number" min="0" placeholder="Min">
             <input id="builderSoulMax" type="number" min="0" placeholder="Max">
           </div>
-          <label>
+          <label class="builder-weiss-filter">
             Trigger
             <select id="builderTriggerFilter">
               <option value="">All</option>
@@ -235,6 +234,10 @@
               <option value="shot">Shot</option>
               <option value="bounce">Bounce</option>
             </select>
+          </label>
+          <label class="builder-check builder-weiss-filter">
+            <input id="builderHideAltCards" type="checkbox">
+            Hide alt cards
           </label>
           <button id="builderClearFiltersBtn" type="button">Clear search conditions</button>
         </aside>
@@ -258,6 +261,126 @@
         <button id="builderClearBtn">Clear</button>
         <button id="builderApplyBtn">Use This Deck</button>
       </footer>
+    </article>
+  </div>
+
+  <div id="collectionModal" class="modal" hidden>
+    <article class="collection-dialog">
+      <header class="card-dialog-header">
+        <div>
+          <h3>Collection</h3>
+          <p>Track owned Weiss cards and see what still needs buying.</p>
+        </div>
+        <button id="closeCollectionModal" aria-label="Close collection">Close</button>
+      </header>
+      <section class="collection-toolbar">
+        <label>
+          Game
+          <select id="collectionGameFilter">
+            <option>Weiss Schwarz</option>
+            <option>Hololive OCG</option>
+          </select>
+        </label>
+        <label class="builder-series-field">
+          <span id="collectionSeriesLabel">Series</span>
+          <select id="collectionSeriesSelect" hidden></select>
+          <button id="collectionSeriesButton" class="builder-series-button" type="button">All series</button>
+          <div id="collectionSeriesMenu" class="builder-series-menu" hidden></div>
+        </label>
+        <label>
+          View
+          <select id="collectionViewFilter">
+            <option value="all">All cards</option>
+            <option value="owned">Owned</option>
+            <option value="unowned">Unowned</option>
+          </select>
+        </label>
+        <label>
+          Search
+          <input id="collectionSearchInput" placeholder="Name, card number, text">
+        </label>
+        <button id="collectionSearchBtn">Search</button>
+      </section>
+      <section class="collection-layout">
+        <aside class="builder-filters collection-filters">
+          <h4>Filters</h4>
+          <label>
+            Card Type
+            <select id="collectionTypeFilter">
+              <option value="">All</option>
+              <option>Character</option>
+              <option>Event</option>
+              <option>Climax</option>
+              <option>Oshi</option>
+              <option>Holomem</option>
+              <option>Support</option>
+              <option>Cheer</option>
+            </select>
+          </label>
+          <label>
+            Color
+            <select id="collectionColorFilter">
+              <option value="">All</option>
+              <option value="yellow">Yellow</option>
+              <option value="green">Green</option>
+              <option value="red">Red</option>
+              <option value="blue">Blue</option>
+              <option value="Y">Holo Yellow</option>
+              <option value="G">Holo Green</option>
+              <option value="R">Holo Red</option>
+              <option value="B">Holo Blue</option>
+              <option value="W">Holo White</option>
+              <option value="P">Holo Purple</option>
+            </select>
+          </label>
+          <div class="builder-filter-range">
+            <span>Level / Bloom</span>
+            <input id="collectionLevelMin" type="number" min="0" placeholder="Min">
+            <input id="collectionLevelMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-weiss-filter">
+            <span>Cost</span>
+            <input id="collectionCostMin" type="number" min="0" placeholder="Min">
+            <input id="collectionCostMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-weiss-filter">
+            <span>Power</span>
+            <input id="collectionPowerMin" type="number" min="0" step="500" placeholder="Min">
+            <input id="collectionPowerMax" type="number" min="0" step="500" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-weiss-filter">
+            <span>Soul</span>
+            <input id="collectionSoulMin" type="number" min="0" placeholder="Min">
+            <input id="collectionSoulMax" type="number" min="0" placeholder="Max">
+          </div>
+          <label class="collection-weiss-filter">
+            Trigger
+            <select id="collectionTriggerFilter">
+              <option value="">All</option>
+              <option value="soul">Soul</option>
+              <option value="standby">Standby</option>
+              <option value="choice">Choice</option>
+              <option value="treasure">Treasure</option>
+              <option value="gate">Gate</option>
+              <option value="stock">Stock</option>
+              <option value="shot">Shot</option>
+              <option value="bounce">Bounce</option>
+            </select>
+          </label>
+          <label class="builder-check collection-weiss-filter">
+            <input id="collectionHideAltCards" type="checkbox">
+            Hide alt cards
+          </label>
+          <button id="collectionClearFiltersBtn" type="button">Clear search conditions</button>
+        </aside>
+        <section class="collection-panel">
+          <div class="builder-panel-head">
+            <h4>Cards</h4>
+            <span id="collectionResultCount"></span>
+          </div>
+          <div id="collectionGrid" class="collection-grid"></div>
+        </section>
+      </section>
     </article>
   </div>
 

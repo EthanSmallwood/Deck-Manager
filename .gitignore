@@ -1,5 +1,7 @@
 data/decks.json
 data/settings.json
+data/collection.json
 outputs/
 logs/
 scratch/
+share/
