@@ -1,20 +1,26 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const CARDS_PATH = resolve("data/cards/weiss-cards.json");
+const CARDS_PATHS = {
+  en: resolve("data/cards/weiss-cards.json"),
+  jp: resolve("data/cards/weiss-jp-cards.json"),
+};
 
-let cachedDatabase;
+const cachedDatabases = new Map();
 
-export function loadWeissDatabase() {
-  if (!cachedDatabase) {
-    const cards = JSON.parse(readFileSync(CARDS_PATH, "utf8"));
-    cachedDatabase = buildDatabase(cards);
+export function loadWeissDatabase(locale = "en") {
+  const key = weissLocale(locale);
+  if (!cachedDatabases.has(key)) {
+    const path = CARDS_PATHS[key];
+    const cards = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : [];
+    cachedDatabases.set(key, buildDatabase(cards));
   }
-  return cachedDatabase;
+  return cachedDatabases.get(key);
 }
 
-export function clearWeissDatabaseCache() {
-  cachedDatabase = null;
+export function clearWeissDatabaseCache(locale = "") {
+  if (locale) cachedDatabases.delete(weissLocale(locale));
+  else cachedDatabases.clear();
 }
 
 export function parseWeissDeck(text) {
@@ -53,15 +59,16 @@ export function parseWeissDeck(text) {
   return entries;
 }
 
-export function resolveWeissDeck(text) {
-  const db = loadWeissDatabase();
+export function resolveWeissDeck(text, options = {}) {
+  const locale = weissLocale(options.locale || (options.jp ? "jp" : "en"));
+  const db = loadWeissDatabase(locale);
   const entries = parseWeissDeck(text);
   const cards = [];
   const missing = [];
   const ambiguous = [];
 
   for (const entry of entries) {
-    const resolution = resolveEntry(entry, db);
+    const resolution = resolveEntry(entry, db, { allowEnglishMarker: locale !== "jp" });
     if (!resolution.matches.length) {
       missing.push(entry);
       continue;
@@ -83,6 +90,7 @@ export function resolveWeissDeck(text) {
       number: card.number,
       name: card.name,
       game: "Weiss Schwarz",
+      locale,
       section: sectionFor(card),
       cardType: card.cardType || "",
       color: card.color || "",
@@ -103,6 +111,7 @@ export function resolveWeissDeck(text) {
     cards,
     missing,
     ambiguous,
+    locale,
     totalCards: cards.reduce((sum, card) => sum + card.qty, 0),
     uniqueCards: cards.length,
   };
@@ -202,13 +211,15 @@ function buildDatabase(cards) {
   return { cards, byNumber, byName, searchableCards };
 }
 
-function resolveEntry(entry, db) {
+function resolveEntry(entry, db, options = {}) {
   const numberMatches = db.byNumber.get(normalizeNumber(entry.number)) || [];
   if (numberMatches.length) return { method: "number", matches: numberMatches };
 
-  for (const candidate of cardNumberCandidates(entry.number)) {
-    const candidateMatches = db.byNumber.get(candidate) || [];
-    if (candidateMatches.length) return { method: "number+E", matches: candidateMatches };
+  if (options.allowEnglishMarker !== false) {
+    for (const candidate of cardNumberCandidates(entry.number)) {
+      const candidateMatches = db.byNumber.get(candidate) || [];
+      if (candidateMatches.length) return { method: "number+E", matches: candidateMatches };
+    }
   }
 
   if (!entry.name) return { method: "missing", matches: [] };
@@ -402,9 +413,9 @@ function findDecklogTitle(value, seen = new Set()) {
 
 function sectionFor(card) {
   const type = String(card.cardType || "").toLowerCase();
-  if (type.includes("climax")) return "Climax";
-  if (type.includes("event")) return "Event";
-  if (type.includes("character")) return "Character";
+  if (type.includes("climax") || type.includes("クライマックス")) return "Climax";
+  if (type.includes("event") || type.includes("イベント")) return "Event";
+  if (type.includes("character") || type.includes("キャラ")) return "Character";
   return "Other";
 }
 
@@ -457,4 +468,8 @@ function encoreCategory(cardType) {
 
 function safeDeckTitle(value) {
   return String(value || "Weiss Schwarz Deck").replace(/\s+/g, " ").trim() || "Weiss Schwarz Deck";
+}
+
+function weissLocale(value) {
+  return String(value || "").toLowerCase() === "jp" ? "jp" : "en";
 }

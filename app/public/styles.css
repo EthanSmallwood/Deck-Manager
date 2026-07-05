@@ -93,6 +93,10 @@ small,
   color: var(--muted);
 }
 
+#importStatus {
+  margin-left: 44px;
+}
+
 .filters {
   display: grid;
   gap: 8px;
@@ -200,6 +204,19 @@ label {
 
 .import-row button {
   flex: 0 0 auto;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.inline-check input {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 #deckText {

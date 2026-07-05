@@ -17,6 +17,8 @@ let currentPort = PORT;
 let weissBuildJob = null;
 let hololiveBuildJob = null;
 let weissSeriesCache = null;
+let encoreSeriesListCache = null;
+const encoreSeriesCardsCache = new Map();
 
 const publicRoot = resolve("app/public");
 const contentTypes = new Map([
@@ -39,6 +41,7 @@ const server = createServer(async (request, response) => {
         ok: true,
         games: ["Weiss Schwarz", "Hololive OCG"],
         weissCards: db.cards.length,
+        weissJpCards: loadWeissDatabase("jp").cards.length,
         hololiveCards: countJsonCards("data/cards/hololive-cards.json"),
       });
       return;
@@ -117,7 +120,7 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "POST" && url.pathname === "/api/weiss/resolve") {
       const body = await readJsonBody(request);
-      const result = resolveWeissDeck(body.deckText || "");
+      const result = resolveWeissDeck(body.deckText || "", { locale: body.locale || (body.jp ? "jp" : "en") });
       sendJson(response, 200, { ok: !result.missing.length, ...result });
       return;
     }
@@ -178,6 +181,14 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/weiss/translate") {
+      const body = await readJsonBody(request);
+      const cards = Array.isArray(body.cards) ? body.cards : [];
+      const translations = await translateWeissCards(cards);
+      sendJson(response, 200, { ok: true, translations });
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/hololive/decklog") {
       const body = await readJsonBody(request);
       const result = await importHololiveDecklogDeck(body.url || body.deckId || "");
@@ -204,7 +215,8 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/weiss/build-db") {
-      const job = startWeissCardDatabaseBuild();
+      const body = await readJsonBody(request);
+      const job = startWeissCardDatabaseBuild(body.locale || "en");
       sendJson(response, 202, { ok: true, job });
       return;
     }
@@ -652,8 +664,10 @@ function loadWeissSeriesMap() {
   return weissSeriesCache;
 }
 
-function startWeissCardDatabaseBuild() {
+function startWeissCardDatabaseBuild(locale = "en") {
   if (weissBuildJob?.status === "running") return weissBuildJob;
+  const isJp = String(locale || "").toLowerCase() === "jp";
+  const outputPath = isJp ? "data/cards/weiss-jp-cards.json" : "data/cards/weiss-cards.json";
 
   weissBuildJob = {
     id: new Date().toISOString(),
@@ -661,14 +675,15 @@ function startWeissCardDatabaseBuild() {
     startedAt: new Date().toISOString(),
     finishedAt: "",
     weissCards: 0,
-    log: "Starting Weiss card database build...",
+    locale: isJp ? "jp" : "en",
+    log: `Starting ${isJp ? "Japanese " : ""}Weiss card database build...`,
     error: "",
   };
 
-  const child = spawn(process.execPath, [
+  const args = [
     "scripts/scrape-weiss-cards.mjs",
     "--output",
-    "data/cards/weiss-cards.json",
+    outputPath,
     "--fresh",
     "--delayMs",
     "50",
@@ -676,7 +691,10 @@ function startWeissCardDatabaseBuild() {
     "25",
     "--concurrency",
     "8",
-  ], {
+  ];
+  if (isJp) args.push("--locale", "jp");
+
+  const child = spawn(process.execPath, args, {
     cwd: resolve("."),
     windowsHide: true,
   });
@@ -698,8 +716,8 @@ function startWeissCardDatabaseBuild() {
       return;
     }
 
-    clearWeissDatabaseCache();
-    const db = loadWeissDatabase();
+    clearWeissDatabaseCache(isJp ? "jp" : "en");
+    const db = loadWeissDatabase(isJp ? "jp" : "en");
     weissBuildJob.status = "complete";
     weissBuildJob.weissCards = db.cards.length;
     appendBuildLog(`Build complete: ${db.cards.length} cards.`);
@@ -782,4 +800,355 @@ function countJsonCards(path) {
   } catch {
     return 0;
   }
+}
+
+async function translateWeissCards(cards) {
+  const uniqueNumbers = [...new Set(cards.map((card) => String(card?.number || "").trim()).filter(Boolean))];
+  const translations = [];
+
+  for (const number of uniqueNumbers) {
+    const encoreTranslation = await translateWeissCardFromEncore(number);
+    if (encoreTranslation.ok) {
+      translations.push(encoreTranslation);
+      continue;
+    }
+
+    const translation = await translateWeissCard(number);
+    translations.push(translation);
+    if (translation.throttled) break;
+    await sleep(5000);
+  }
+
+  return translations;
+}
+
+async function translateWeissCardFromEncore(number) {
+  const lookup = parseEncoreWeissNumber(number);
+  if (!lookup) return { ok: false, number, error: "Could not parse Weiss card number for EncoreDecks." };
+
+  try {
+    const series = await findEncoreSeries(lookup);
+    if (!series) return { ok: false, number, error: "No matching EncoreDecks series." };
+
+    const cards = await fetchEncoreSeriesCards(series._id);
+    const card = cards.find((item) => normalizeEncoreCardCode(item.cardcode) === lookup.cardcode);
+    if (!card) return { ok: false, number, error: "Card was not found in EncoreDecks series." };
+
+    const english = card.locale?.EN || {};
+    const name = cleanEncoreString(english.name);
+    const traits = Array.isArray(english.attributes) ? english.attributes.map(cleanEncoreString).filter(Boolean).join(" / ") : "";
+    const ability = Array.isArray(english.ability) ? english.ability.map(cleanEncoreString).filter(Boolean).join("\n") : "";
+    if (!name && !traits && !ability) return { ok: false, number, error: "EncoreDecks has no English translation for this card." };
+    if (hasJapaneseCharacters([name, traits, ability].join(" "))) {
+      return { ok: false, number, error: "EncoreDecks translation is incomplete." };
+    }
+
+    return {
+      ok: true,
+      source: "EncoreDecks",
+      number,
+      url: `https://www.encoredecks.com/api/series/${encodeURIComponent(series._id)}/cards`,
+      name,
+      traits,
+      text: ability,
+      cardType: encoreCardType(card.cardtype),
+      color: encoreColor(card.colour),
+      level: encoreStat(card.level),
+      cost: encoreStat(card.cost),
+      power: encoreStat(card.power),
+      soul: encoreSoulText(card.soul),
+      trigger: encoreTriggerText(card.trigger),
+      rarity: cleanEncoreString(card.rarity),
+    };
+  } catch (error) {
+    return { ok: false, number, error: `EncoreDecks lookup failed: ${error.message || error}` };
+  }
+}
+
+function parseEncoreWeissNumber(number) {
+  const cardcode = normalizeEncoreCardCode(number);
+  const match = cardcode.match(/^([^/]+)\/([A-Z])([A-Z0-9]+)-(.+)$/i);
+  if (!match) return null;
+  return {
+    cardcode,
+    set: match[1].toUpperCase(),
+    side: match[2].toUpperCase(),
+    release: match[3].toUpperCase(),
+  };
+}
+
+function normalizeEncoreCardCode(number) {
+  return String(number || "")
+    .trim()
+    .replace(/^WS_/i, "")
+    .replace(/\/([A-Z][A-Z0-9]*)-E(\d)/i, "/$1-$2")
+    .toUpperCase();
+}
+
+async function findEncoreSeries(lookup) {
+  const seriesList = await fetchEncoreSeriesList();
+  return seriesList.find((series) => (
+    series.game === "WS"
+    && series.lang === "JP"
+    && String(series.set || "").toUpperCase() === lookup.set
+    && String(series.side || "").toUpperCase() === lookup.side
+    && String(series.release || "").toUpperCase() === lookup.release
+  )) || null;
+}
+
+async function fetchEncoreSeriesList() {
+  if (encoreSeriesListCache) return encoreSeriesListCache;
+  const response = await fetch("https://www.encoredecks.com/api/serieslist/JP");
+  if (!response.ok) throw new Error(`EncoreDecks series list HTTP ${response.status}`);
+  encoreSeriesListCache = await response.json();
+  return encoreSeriesListCache;
+}
+
+async function fetchEncoreSeriesCards(seriesId) {
+  if (encoreSeriesCardsCache.has(seriesId)) return encoreSeriesCardsCache.get(seriesId);
+  const response = await fetch(`https://www.encoredecks.com/api/series/${encodeURIComponent(seriesId)}/cards`);
+  if (!response.ok) throw new Error(`EncoreDecks cards HTTP ${response.status}`);
+  const cards = await response.json();
+  encoreSeriesCardsCache.set(seriesId, cards);
+  return cards;
+}
+
+function cleanEncoreString(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/《\s+/g, "《")
+    .replace(/\s+》/g, "》")
+    .trim();
+}
+
+function hasJapaneseCharacters(value) {
+  return /[\u3040-\u30ff\u3400-\u9fff]/u.test(String(value || ""));
+}
+
+function encoreCardType(value) {
+  const text = String(value || "").toUpperCase();
+  if (text === "CX" || text === "3") return "Climax";
+  if (text === "EV" || text === "2") return "Event";
+  if (text === "CH" || text === "1") return "Character";
+  return cleanEncoreString(value);
+}
+
+function encoreColor(value) {
+  const text = cleanEncoreString(value).toLowerCase();
+  return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
+function encoreStat(value) {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function encoreSoulText(value) {
+  const count = Number(value || 0);
+  return count > 0 ? Array.from({ length: count }, () => "【soul】").join(" ") : "";
+}
+
+function encoreTriggerText(value) {
+  const triggers = Array.isArray(value) ? value : [value].filter(Boolean);
+  return triggers.map(encoreTriggerName).filter(Boolean).map((trigger) => `【${trigger}】`).join(" ");
+}
+
+function encoreTriggerName(value) {
+  const trigger = String(value || "").trim().toUpperCase();
+  const names = {
+    COMEBACK: "salvage",
+    RETURN: "bounce",
+    TREASURE: "treasure",
+    SOUL: "soul",
+    SHOT: "shot",
+    CHOICE: "choice",
+    GATE: "gate",
+    STOCK: "stock",
+    STANDBY: "standby",
+    DRAW: "draw",
+  };
+  return names[trigger] || trigger.toLowerCase();
+}
+
+async function translateWeissCard(number) {
+  const urls = heartOfTheCardsUrls(number);
+  let lastError = "";
+
+  for (const url of urls) {
+    for (const requestOptions of heartOfTheCardsRequestOptions(url)) {
+      try {
+        const html = requestOptions.useHelper
+          ? await fetchHeartOfTheCardsHtml(url)
+          : await fetchHeartOfTheCardsHtmlDirect(url, requestOptions);
+        const parsed = parseHeartOfTheCards(html);
+        if (isHeartOfTheCardsGenericPage(html)) {
+          const error = new Error(`Heart of the Cards asked us to go slower. Wait a bit and press Translate again; already translated cards will be skipped. Snippet: ${hotcDebugSnippet(html)}`);
+          error.throttled = true;
+          throw error;
+        }
+        if (!parsed.name && !parsed.text) {
+          throw new Error(`No translation found on returned page. Snippet: ${hotcDebugSnippet(html)}`);
+        }
+        return { ok: true, number, url, ...parsed };
+    } catch (error) {
+      lastError = error.message || String(error);
+      if (error.throttled) return { ok: false, number, url, triedUrls: urls, error: lastError, throttled: true };
+    }
+  }
+  }
+
+  return { ok: false, number, url: urls[0], triedUrls: urls, error: lastError || "No translation found." };
+}
+
+function heartOfTheCardsUrls(number) {
+  const hotcNumber = heartOfTheCardsNumber(number);
+  return [
+    `https://heartofthecards.com/code/cardlist.html?card=${encodeURIComponent(hotcNumber)}&short=1`,
+    `https://www.heartofthecards.com/code/cardlist.html?card=${encodeURIComponent(hotcNumber)}&short=1`,
+  ];
+}
+
+function heartOfTheCardsRequestOptions() {
+  return [
+    { useHelper: true },
+    {
+      headers: {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    },
+    {
+      headers: {
+        "user-agent": "Deckmanager/0.3",
+      },
+    },
+  ];
+}
+
+function fetchHeartOfTheCardsHtml(url) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(process.execPath, ["scripts/fetch-hotc-card.mjs", url], {
+      cwd: resolve("."),
+      windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", () => {
+      try {
+        const result = JSON.parse(stdout.trim() || "{}");
+        if (!result.ok) throw new Error(result.error || `HTTP ${result.status || 0}`);
+        resolvePromise(String(result.html || ""));
+      } catch (error) {
+        reject(new Error(error.message || stderr || "HOTC helper failed."));
+      }
+    });
+  });
+}
+
+async function fetchHeartOfTheCardsHtmlDirect(url, options) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.text();
+}
+
+function hotcDebugSnippet(html) {
+  return cleanHotcText(String(html || "").slice(0, 700)).replace(/\s+/g, " ").slice(0, 240) || "[blank response]";
+}
+
+function isHeartOfTheCardsGenericPage(html) {
+  const text = String(html || "");
+  return /Heart of the Cards - Card Translations/i.test(text) && !/Reference Card/i.test(text);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function heartOfTheCardsNumber(number) {
+  const withoutEnglishMarker = String(number || "").trim().replace(/\/([A-Z]{1,3}\d{2,4})-E(\d)/i, "/$1-$2");
+  return withoutEnglishMarker.startsWith("WS_") ? withoutEnglishMarker : `WS_${withoutEnglishMarker}`;
+}
+
+function parseHeartOfTheCards(html) {
+  const titleBlock = html.match(/<td[^>]*\bcolspan\s*=\s*["']?2["']?[^>]*>\s*<b>([\s\S]*?)<\/b>/i)?.[1] || "";
+  const titleLines = cleanHotcText(titleBlock).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const name = titleLines.length >= 3 ? titleLines[titleLines.length - 1] : "";
+
+  const traitRow = html.match(/Traits?:[\s\S]*?<\/td>\s*<\/tr>/i)?.[0] || "";
+  const traits = parseHotcTraits(traitRow);
+  const englishRow = [...html.matchAll(/<tr[^>]*>\s*<t[dh][^>]*\bcolspan\s*=\s*["']?2["']?[^>]*>([\s\S]*?)<\/t[dh]>\s*<\/tr>/gi)].pop()?.[1] || "";
+  const text = normalizeHotcCardText(cleanHotcText(englishRow));
+
+  return { name, traits, text };
+}
+
+function parseHotcTraits(html) {
+  const text = cleanHotcText(html).split(/\r?\n/)[0].replace(/\s+/g, " ");
+  const traits = [];
+  for (const match of text.matchAll(/Trait\s+\d+:\s*([^()]+?)(?:\s*\(([^)]+)\))?(?=\s+Trait\s+\d+:|$)/gi)) {
+    traits.push((match[2] || match[1] || "").trim());
+  }
+  if (!traits.length) {
+    const match = text.match(/Traits:\s*([^()]+?)(?:\s*\(([^)]+)\))?\s*$/i);
+    if (match) traits.push((match[2] || match[1] || "").trim());
+  }
+  return traits.filter(Boolean).join(" / ");
+}
+
+function normalizeHotcCardText(text) {
+  return String(text || "")
+    .replace(/\[C\]/g, "【CONT】")
+    .replace(/\[A\]/g, "【AUTO】")
+    .replace(/\[S\]/g, "【ACT】")
+    .replace(/::(.+?)::/g, "《$1》")
+    .replace(/\bthis is in the Front Row Center Slot\b/gi, "this card is in the middle position of your center stage")
+    .replace(/\bWhen this is\b/g, "When this card is")
+    .replace(/\bwhen this is\b/g, "when this card is")
+    .replace(/\bthis gains ([+-]?\d+) Power\b/gi, "this card gets $1 power")
+    .replace(/\bDiscard a Climax card from your hand to the Waiting Room\b/gi, "Put 1 climax from your hand into your waiting room")
+    .replace(/\bplaced from hand to the Stage\b/gi, "placed on the stage from your hand")
+    .replace(/\bplaced from your hand to the Stage\b/gi, "placed on the stage from your hand")
+    .replace(/\bpay cost\b/gi, "pay the cost")
+    .replace(/\bIf so\b/g, "If you do")
+    .replace(/\bClimax card\b/g, "climax")
+    .replace(/\bWaiting Room\b/g, "waiting room")
+    .replace(/\bLibrary\b/g, "library")
+    .replace(/\bOpponent\b/g, "opponent")
+    .replace(/\bCharacters\b/g, "characters")
+    .replace(/\bCharacter\b/g, "Character");
+}
+
+function cleanHotcText(html) {
+  return decodeHotcHtml(
+    String(html || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n[ \t]+/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .trim()
+  );
+}
+
+function decodeHotcHtml(text) {
+  const decoded = String(text || "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;|&#34;/g, '"')
+    .replace(/&#39;|&#039;/g, "'")
+    .replace(/&#47;/g, "/")
+    .replace(/&#x2f;/gi, "/")
+    .replace(/&#91;/g, "[")
+    .replace(/&#93;/g, "]")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+  return decoded.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
 }

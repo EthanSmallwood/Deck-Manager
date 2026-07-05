@@ -37,6 +37,7 @@
           <button id="deleteDeckBtn">Delete</button>
           <button id="builderBtn">Builder</button>
           <button id="collectionBtn">Collection</button>
+          <button id="translateBtn">Translate</button>
           <button id="ttsBtn">TTS</button>
           <button id="settingsBtn">Settings</button>
         </div>
@@ -92,6 +93,10 @@
           <textarea id="deckText" spellcheck="false" placeholder="Paste Weiss decklist here"></textarea>
           <div class="import-row">
             <button id="resolveBtn">Import Decklist</button>
+            <label class="inline-check">
+              <input id="weissJpImportInput" type="checkbox">
+              JP
+            </label>
             <span id="importStatus"></span>
           </div>
         </div>
@@ -139,6 +144,13 @@
           <p>Rebuild the local card database from the official English Weiss card list.</p>
         </div>
         <button id="buildWeissDbBtn">Build Weiss Card DB</button>
+      </section>
+      <section class="settings-body">
+        <div>
+          <h4>Weiss Schwarz JP</h4>
+          <p>Build the local Japanese Weiss card database for JP card number imports.</p>
+        </div>
+        <button id="buildWeissJpDbBtn">Build JP Weiss Card DB</button>
       </section>
       <section class="settings-body">
         <div>

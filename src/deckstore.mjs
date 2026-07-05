@@ -99,6 +99,7 @@ function normalizeCard(card) {
     tagsList: Array.isArray(card.tagsList) ? card.tagsList : [],
     imageUrl: String(card.imageUrl || ""),
     detailUrl: String(card.detailUrl || ""),
+    translationUrl: String(card.translationUrl || ""),
   };
 }
 
