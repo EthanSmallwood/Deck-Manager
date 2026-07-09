@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 const SHEET_COLUMNS = 10;
 const SHEET_ROWS = 7;
@@ -418,6 +418,7 @@ export async function generateWeissTtsDeck(deck, currentPort, settings = {}) {
   return generateTtsDeck(deck, currentPort, settings, {
     defaultDeckName: "Weiss Schwarz Deck",
     cardBackUrl: DEFAULT_CARD_BACK_URL,
+    cardImageUrl: weissTtsImageUrl,
     rotateCard: isClimax,
     makeCard: makeWeissTtsCard,
   });
@@ -471,8 +472,9 @@ async function generateTtsDeck(deck, currentPort, settings = {}, config) {
   const imagePathByNumber = new Map();
 
   for (const card of uniqueCards) {
-    const imagePath = resolve(outDir, "images", `${safeFileName(card.number)}.png`);
-    if (!existsSync(imagePath)) await downloadFile(card.imageUrl, imagePath);
+    const imageUrl = config.cardImageUrl ? config.cardImageUrl(card, deck) : card.imageUrl;
+    const imagePath = resolve(outDir, "images", `${safeFileName(card.number)}-${shortHash(imageUrl)}.png`);
+    if (!existsSync(imagePath)) await downloadFile(imageUrl, imagePath);
     imagePathByNumber.set(card.number, imagePath);
   }
 
@@ -842,6 +844,19 @@ function uniqueCardKey(card) {
   return `${card.number || ""}|${card.imageUrl || ""}|${card.name || ""}`;
 }
 
+function weissTtsImageUrl(card, deck) {
+  return isTranslatedJpWeissDeck(deck) && card.proxyImageUrl
+    ? String(card.proxyImageUrl).trim()
+    : String(card.imageUrl || "").trim();
+}
+
+function isTranslatedJpWeissDeck(deck) {
+  if (String(deck?.weissLocale || deck?.locale || "").toLowerCase() === "jp") {
+    return (deck.cards || []).some((card) => card.translationUrl || card.proxyImageUrl);
+  }
+  return (deck?.cards || []).some((card) => String(card.locale || "").toLowerCase() === "jp" && (card.translationUrl || card.proxyImageUrl));
+}
+
 function hololiveSection(card) {
   const section = String(card.section || "").toLowerCase();
   const type = String(card.cardType || "").toLowerCase();
@@ -1101,6 +1116,10 @@ function weissPowerValue(value) {
 
 function relativeAssetPath(path) {
   return relative(resolve("."), resolve(path)).split(sep).join("/");
+}
+
+function shortHash(value) {
+  return createHash("sha1").update(String(value || "")).digest("hex").slice(0, 10);
 }
 
 function safeFileName(value) {

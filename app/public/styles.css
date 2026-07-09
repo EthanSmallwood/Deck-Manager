@@ -630,6 +630,14 @@ label {
   font-weight: 700;
 }
 
+.card-detail-actions {
+  margin-top: 12px;
+}
+
+.card-detail-actions button {
+  width: 100%;
+}
+
 .card-text {
   border-top: 1px solid var(--line);
   white-space: pre-wrap;
