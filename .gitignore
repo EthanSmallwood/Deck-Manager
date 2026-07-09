@@ -1,6 +1,8 @@
 data/decks.json
 data/settings.json
 data/collection.json
+data/translation-cache.json
+data/cards/weiss-jp-cards.json
 outputs/
 logs/
 scratch/

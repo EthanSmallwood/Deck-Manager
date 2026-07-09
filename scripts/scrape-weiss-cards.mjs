@@ -5,10 +5,13 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const DEFAULT_URL =
   "https://en.ws-tcg.com/cardlist/searchresults/?keyword=&keyword_or=&keyword_not=&keyword_type%5B0%5D=name&keyword_type%5B1%5D=feature&keyword_type%5B2%5D=text&keyword_type%5B3%5D=no&side=&title=&category=&expansion_name=&card_kind%5B0%5D=all&color%5B0%5D=all&level_s=&level_e=&power_s=&power_e=&soul_s=&soul_e=&cost_s=&cost_e=&trigger=&view=text&sort=new";
+const DEFAULT_JP_URL =
+  "https://ws-tcg.com/cardlist/search/?keyword=&keyword_or=&keyword_not=&keyword_type%5B%5D=all&title_number=&expansion=&card_kind=&level_s=&level_e=&power_s=&power_e=&color=&soul_s=&soul_e=&cost_s=&cost_e=&trigger=&option_counter=0&option_clock=0&parallel=0&show_page_count=30";
 
 const args = parseArgs(process.argv.slice(2));
-const startUrl = args.url || DEFAULT_URL;
-const outputPath = args.output || "data/cards/weiss-cards.json";
+const locale = String(args.locale || "").toLowerCase() === "jp" ? "jp" : "en";
+const startUrl = args.url || (locale === "jp" ? DEFAULT_JP_URL : DEFAULT_URL);
+const outputPath = args.output || (locale === "jp" ? "data/cards/weiss-jp-cards.json" : "data/cards/weiss-cards.json");
 const delayMs = Number(args.delayMs || 250);
 const maxPages = Number(args.maxPages || Infinity);
 const flushEvery = Number(args.flushEvery || 5);
@@ -25,6 +28,17 @@ if (existsSync(outputPath) && !args.fresh) {
 
 let pageCount = 0;
 let expectedTotal = 0;
+
+if (locale === "jp") {
+  await scrapeJapaneseJson();
+  writeJson(outputPath, allCards);
+  if (!Number.isFinite(maxPages) && expectedTotal && allCards.length !== expectedTotal) {
+    console.warn(
+      `Warning: site reported ${expectedTotal} cards, but ${allCards.length} cards were written.`
+    );
+  }
+  console.log(`Done. Wrote ${allCards.length} cards to ${outputPath}`);
+} else {
 
 const firstUrl = new URL(startUrl).toString();
 seenPages.add(firstUrl);
@@ -94,8 +108,122 @@ if (!Number.isFinite(maxPages) && expectedTotal && allCards.length !== expectedT
   );
 }
 console.log(`Done. Wrote ${allCards.length} cards to ${outputPath}`);
+}
+
+async function scrapeJapaneseJson() {
+  const firstUrl = jpSearchApiUrl(startUrl, 1);
+  pageCount = 1;
+
+  console.log(`Fetching JP page 1: ${firstUrl}`);
+  const first = await fetchJsonWithRetry(firstUrl);
+  expectedTotal = Number(first.total || 0);
+  const firstCards = parseJapaneseJsonCards(first.items || []);
+  addCards(firstCards);
+  console.log(`Parsed ${firstCards.length} cards, ${firstCards.length} new, ${allCards.length} total`);
+
+  const limit = Number(first.limit || new URL(firstUrl).searchParams.get("show_page_count") || 30);
+  const maxPageFromTotal = expectedTotal ? Math.ceil(expectedTotal / limit) : 1;
+  const lastPage = Math.min(maxPageFromTotal, maxPages);
+  const pages = [];
+  for (let page = 2; page <= lastPage; page += 1) pages.push(page);
+
+  await runConcurrent(pages, Math.max(1, concurrency), async (page) => {
+    const url = jpSearchApiUrl(startUrl, page);
+    const json = await fetchJsonWithRetry(url);
+    const pageCards = parseJapaneseJsonCards(json.items || []);
+    const added = addCards(pageCards);
+    pageCount += 1;
+
+    console.log(`Parsed JP page ${page}: ${pageCards.length} cards, ${added} new, ${allCards.length} total`);
+    if (pageCount % flushEvery === 0) writeJson(outputPath, allCards);
+    if (delayMs > 0) await sleep(delayMs);
+  });
+}
+
+function jpSearchApiUrl(sourceUrl, page) {
+  const source = new URL(sourceUrl);
+  const api = new URL("https://ws-tcg.com/manage/CardListUser/searchJson");
+  for (const [key, value] of source.searchParams) {
+    if (key === "page_num" || key === "view") continue;
+    api.searchParams.append(key, value);
+  }
+  api.searchParams.set("page", String(page));
+  if (!api.searchParams.get("show_page_count")) api.searchParams.set("show_page_count", "30");
+  return api.toString();
+}
+
+function parseJapaneseJsonCards(items) {
+  return items.map((item) => ({
+    number: String(item.card_number || "").trim(),
+    name: String(item.card_name || "").trim(),
+    detailUrl: item.card_number ? `https://ws-tcg.com/cardlist/search/?cardno=${encodeURIComponent(item.card_number)}` : "",
+    imageUrl: item.picture ? `https://ws-tcg.com/wordpress/wp-content/images/cardlist/${item.picture}` : "",
+    cardType: mapJapaneseCardKind(item.card_kind),
+    rarity: String(item.rare || "").trim(),
+    side: jpSide(item.side),
+    color: colorFromToken(item.color),
+    level: String(item.level ?? "").trim(),
+    cost: String(item.cost ?? "").trim(),
+    power: cleanJapaneseValue(item.power),
+    trigger: triggerFromToken(item.card_trigger),
+    soul: soulFromToken(item.soul),
+    text: cleanJapaneseValue(item.text),
+  })).filter((card) => card.number);
+}
+
+function mapJapaneseCardKind(value) {
+  const number = Number(value);
+  if (number === 2) return "Character";
+  if (number === 3) return "Event";
+  if (number === 4) return "Climax";
+  return String(value || "").trim();
+}
+
+function jpSide(value) {
+  const text = String(value ?? "").trim();
+  if (text === "-1" || text === "1") return "W";
+  if (text === "-2" || text === "2") return "S";
+  return text;
+}
+
+function colorFromToken(value) {
+  const text = String(value || "").trim();
+  const lower = text.toLowerCase();
+  if (lower.includes("yellow")) return "yellow";
+  if (lower.includes("green")) return "green";
+  if (lower.includes("red")) return "red";
+  if (lower.includes("blue")) return "blue";
+  if (text.includes("黄")) return "yellow";
+  if (text.includes("緑")) return "green";
+  if (text.includes("赤")) return "red";
+  if (text.includes("青")) return "blue";
+  return cleanJapaneseValue(text);
+}
+
+function soulFromToken(value) {
+  const text = String(value || "").trim();
+  const icons = text.match(/soul\.gif|\[\[soul\.gif\]\]/gi)?.length || 0;
+  return icons ? String(icons) : cleanJapaneseValue(text);
+}
+
+function triggerFromToken(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "-") return "-";
+  const icons = [...text.matchAll(/\[\[([^\]]+)\]\]|([^/\\\s]+)\.gif/gi)]
+    .map((match) => (match[1] || match[2] || "").replace(/\.gif$/i, "").toLowerCase())
+    .filter(Boolean);
+  return icons.length ? icons.join(" ") : cleanJapaneseValue(text);
+}
+
+function cleanJapaneseValue(value) {
+  return cleanText(String(value || "").replace(/\[\[([^\]]+)\]\]/g, (_, file) => `<img src="${file}" alt="${file}">`));
+}
 
 function parseCards(html, pageUrl) {
+  if (html.includes("card__item") || html.includes("js-cardListText")) {
+    return parseJapaneseCards(html, pageUrl);
+  }
+
   const cards = [];
   const cardBlocks = html.matchAll(
     /<li\b[^>]*>\s*<a\s+href=(["'])([^"']*\/cardlist\/\?cardno=[^"']*)\1[^>]*>([\s\S]*?)<\/a>\s*<\/li>/g
@@ -135,6 +263,90 @@ function parseCards(html, pageUrl) {
   }
 
   return cards;
+}
+
+function parseJapaneseCards(html, pageUrl) {
+  const cards = [];
+  const cardBlocks = html.matchAll(/<li\b[^>]*class=(["'])[^"']*\bcard__item\b[^"']*\1[^>]*>([\s\S]*?)<\/li>/g);
+
+  for (const match of cardBlocks) {
+    const block = match[2];
+    const nameLine = textOfClass(block, "card__name");
+    const nameMatch = nameLine.match(/^(.*?)\s*\(([^)]+)\)\s*-\s*(.+)$/);
+    const number = cleanText(nameMatch?.[2] || "");
+    if (!number) continue;
+
+    const specs = jpSpecValues(block);
+    cards.push({
+      number,
+      name: cleanText(nameMatch?.[1] || nameLine.replace(/\([^)]+\)\s*-\s*.+$/, "")),
+      detailUrl: jpDetailUrl(block, pageUrl),
+      imageUrl: jpImageSrc(block, pageUrl),
+      cardType: mapJapaneseCardType(specs[1] || ""),
+      rarity: cleanText(nameMatch?.[3] || specs[7] || ""),
+      side: imageAltOrTextFromHtml(specs[0]) || cleanText(specs[0] || ""),
+      color: colorFromHtml(specs[3] || ""),
+      level: cleanText(specs[2] || ""),
+      cost: cleanText(specs[6] || ""),
+      power: cleanText(specs[4] || ""),
+      trigger: triggerFromHtml(specs[8] || ""),
+      soul: soulFromHtml(specs[5] || ""),
+      text: textOfClass(block, "card__descriptionText"),
+    });
+  }
+
+  return cards;
+}
+
+function jpSpecValues(block) {
+  return [...block.matchAll(/<div\b[^>]*class=(["'])[^"']*\bcard__spec[12]Item\b[^"']*\1[^>]*>\s*<dt>[\s\S]*?<\/dt>\s*<dd>([\s\S]*?)<\/dd>\s*<\/div>/g)]
+    .map((match) => match[2]);
+}
+
+function jpImageSrc(html, baseUrl) {
+  const match = html.match(/<a\b[^>]*class=(["'])[^"']*\bcard__imgLink\b[^"']*\bpc\b[^"']*\1[^>]*>\s*<img[^>]+src=(["'])([^"']+)\2/i)
+    || html.match(/<img[^>]+src=(["'])([^"']+)\1/i);
+  const src = match?.[3] || match?.[2] || "";
+  return src ? absolutize(decodeHtml(src), baseUrl) : "";
+}
+
+function jpDetailUrl(html, baseUrl) {
+  const id = html.match(/\bdata-id=(["'])([^"']+)\1/i)?.[2] || "";
+  return id ? absolutize(`/cardlist/carddetail/?cardno=${encodeURIComponent(id)}`, baseUrl) : "";
+}
+
+function imageAltOrTextFromHtml(html) {
+  const alt = String(html || "").match(/<img[^>]+alt=(["'])([^"']*)\1/i)?.[2] || "";
+  return cleanText(alt || html || "");
+}
+
+function colorFromHtml(html) {
+  const src = String(html || "").match(/<img[^>]+src=(["'])([^"']+)\1/i)?.[2] || "";
+  const file = src.split("/").pop()?.replace(/\.[^.]+$/, "").toLowerCase() || "";
+  if (["yellow", "green", "red", "blue"].includes(file)) return file;
+  return cleanText(html || "");
+}
+
+function soulFromHtml(html) {
+  const icons = String(html || "").match(/soul\.gif/gi)?.length || 0;
+  return icons ? String(icons) : cleanText(html || "");
+}
+
+function triggerFromHtml(html) {
+  const text = cleanText(html || "");
+  if (text && text !== "-") return text;
+  const srcs = [...String(html || "").matchAll(/<img[^>]+src=(["'])([^"']+)\1/gi)]
+    .map((match) => match[2].split("/").pop()?.replace(/\.[^.]+$/, "").toLowerCase())
+    .filter(Boolean);
+  return srcs.length ? srcs.join(" ") : text;
+}
+
+function mapJapaneseCardType(value) {
+  const text = cleanText(value);
+  if (text.includes("キャラ") || text.includes("ã‚­ãƒ£ãƒ©")) return "Character";
+  if (text.includes("イベント") || text.includes("ã‚¤ãƒ™ãƒ³ãƒˆ")) return "Event";
+  if (text.includes("クライマックス") || text.includes("ã‚¯ãƒ©ã‚¤ãƒžãƒƒã‚¯ã‚¹")) return "Climax";
+  return text;
 }
 
 function addCards(pageCards) {
@@ -225,6 +437,11 @@ async function fetchTextWithRetry(url, attempts = 4) {
     }
   }
   throw lastError;
+}
+
+async function fetchJsonWithRetry(url, attempts = 4) {
+  const text = await fetchTextWithRetry(url, attempts);
+  return JSON.parse(text);
 }
 
 function writeJson(path, cardList) {

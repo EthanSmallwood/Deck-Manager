@@ -56,6 +56,7 @@ function normalizeDeck(deck) {
     id: String(deck.id || randomUUID()),
     name: String(deck.name || "Untitled Deck"),
     game: String(deck.game || "Weiss Schwarz"),
+    weissLocale: String(deck.weissLocale || deck.locale || "").toLowerCase() === "jp" ? "jp" : "en",
     source: String(deck.source || ""),
     sourceUrl: String(deck.sourceUrl || ""),
     status: String(deck.status || "Testing"),
@@ -74,6 +75,7 @@ function normalizeCard(card) {
     number: String(card.number || card.cardNumber || ""),
     name: String(card.name || ""),
     game: String(card.game || "Weiss Schwarz"),
+    locale: String(card.locale || ""),
     section: String(card.section || card.category || ""),
     cardType: String(card.cardType || ""),
     color: String(card.color || ""),
@@ -98,7 +100,10 @@ function normalizeCard(card) {
     tags: String(card.tags || ""),
     tagsList: Array.isArray(card.tagsList) ? card.tagsList : [],
     imageUrl: String(card.imageUrl || ""),
+    proxyImageUrl: String(card.proxyImageUrl || ""),
+    proxyOutputPath: String(card.proxyOutputPath || ""),
     detailUrl: String(card.detailUrl || ""),
+    translationUrl: String(card.translationUrl || ""),
   };
 }
 

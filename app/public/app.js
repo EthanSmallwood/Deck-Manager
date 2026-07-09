@@ -14,6 +14,7 @@ const state = {
   collectionResultsTotal: 0,
   collectionResultsHasMore: false,
   collectionResultsLoading: false,
+  modalCard: null,
 };
 
 const SEARCH_PAGE_SIZE = 120;
@@ -40,6 +41,7 @@ const el = {
   deleteDeckBtn: document.querySelector("#deleteDeckBtn"),
   builderBtn: document.querySelector("#builderBtn"),
   collectionBtn: document.querySelector("#collectionBtn"),
+  translateBtn: document.querySelector("#translateBtn"),
   ttsBtn: document.querySelector("#ttsBtn"),
   settingsBtn: document.querySelector("#settingsBtn"),
   nameInput: document.querySelector("#nameInput"),
@@ -53,6 +55,7 @@ const el = {
   encoreBtn: document.querySelector("#encoreBtn"),
   decklogBtn: document.querySelector("#decklogBtn"),
   deckText: document.querySelector("#deckText"),
+  weissJpImportInput: document.querySelector("#weissJpImportInput"),
   resolveBtn: document.querySelector("#resolveBtn"),
   importStatus: document.querySelector("#importStatus"),
   summaryStats: document.querySelector("#summaryStats"),
@@ -65,10 +68,12 @@ const el = {
   modalCardNumber: document.querySelector("#modalCardNumber"),
   modalCardImageWrap: document.querySelector("#modalCardImageWrap"),
   modalCardDetails: document.querySelector("#modalCardDetails"),
+  modalCardActions: document.querySelector("#modalCardActions"),
   modalCardText: document.querySelector("#modalCardText"),
   settingsModal: document.querySelector("#settingsModal"),
   closeSettingsModal: document.querySelector("#closeSettingsModal"),
   buildWeissDbBtn: document.querySelector("#buildWeissDbBtn"),
+  buildWeissJpDbBtn: document.querySelector("#buildWeissJpDbBtn"),
   buildHololiveDbBtn: document.querySelector("#buildHololiveDbBtn"),
   clearImageCacheBtn: document.querySelector("#clearImageCacheBtn"),
   saveSettingsBtn: document.querySelector("#saveSettingsBtn"),
@@ -143,6 +148,7 @@ el.saveDeckBtn.addEventListener("click", saveDeck);
 el.deleteDeckBtn.addEventListener("click", deleteSelectedDeck);
 el.builderBtn.addEventListener("click", openBuilderModal);
 el.collectionBtn.addEventListener("click", openCollectionModal);
+el.translateBtn.addEventListener("click", translateCurrentDeck);
 el.resolveBtn.addEventListener("click", resolveDeckText);
 el.encoreBtn.addEventListener("click", fillFromEncore);
 el.decklogBtn.addEventListener("click", fillFromDecklog);
@@ -151,6 +157,7 @@ el.settingsBtn.addEventListener("click", openSettingsModal);
 el.closeCardModal.addEventListener("click", closeCardModal);
 el.closeSettingsModal.addEventListener("click", closeSettingsModal);
 el.buildWeissDbBtn.addEventListener("click", buildWeissCardDb);
+el.buildWeissJpDbBtn.addEventListener("click", buildWeissJpCardDb);
 el.buildHololiveDbBtn.addEventListener("click", buildHololiveCardDb);
 el.clearImageCacheBtn.addEventListener("click", clearImageCache);
 el.saveSettingsBtn.addEventListener("click", saveSettings);
@@ -183,6 +190,10 @@ el.collectionClearFiltersBtn.addEventListener("click", clearCollectionFilters);
 el.collectionGrid.addEventListener("scroll", maybeLoadMoreCollectionCards);
 el.cardModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-card]")) closeCardModal();
+});
+el.modalCardActions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-generate-proxy]");
+  if (button) generateProxyForModalCard(button);
 });
 el.settingsModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-settings]")) closeSettingsModal();
@@ -277,6 +288,7 @@ function selectDeck(id) {
   el.sourceUrlInput.value = deck.sourceUrl || "";
   el.notesInput.value = deck.notes || "";
   el.deckText.value = "";
+  el.weissJpImportInput.checked = deck.weissLocale === "jp" || (deck.cards || []).some((card) => card.locale === "jp");
 
   renderDeckList();
   renderDeck(deck);
@@ -294,6 +306,7 @@ function newDeck() {
   el.sourceUrlInput.value = "";
   el.notesInput.value = "";
   el.deckText.value = "";
+  el.weissJpImportInput.checked = false;
   el.importStatus.classList.remove("bad");
   renderDeck(emptyDeck());
   renderDeckList();
@@ -303,7 +316,7 @@ function newDeck() {
 async function resolveDeckText() {
   setBusy(el.resolveBtn, true, "Resolving...");
   try {
-    const result = await api("/api/weiss/resolve", { deckText: el.deckText.value });
+    const result = await api("/api/weiss/resolve", { deckText: el.deckText.value, locale: el.weissJpImportInput.checked ? "jp" : "en" });
     state.resolved = result;
     el.importStatus.textContent = result.missing.length
       ? `${result.missing.length} missing cards`
@@ -398,6 +411,92 @@ async function saveDeck() {
   }
 }
 
+async function translateCurrentDeck() {
+  const deck = formDeck();
+  const cards = state.resolved?.cards?.length ? state.resolved.cards : deck.cards || [];
+  const weissCards = cards.filter((card) => card.game !== "Hololive OCG");
+  if (!weissCards.length) {
+    log("No Weiss cards in this deck to translate.", true);
+    return;
+  }
+
+  setBusy(el.translateBtn, true, "Translating...");
+  try {
+    const result = await api("/api/weiss/translate", { cards: weissCards.map((card) => ({ number: card.number })) });
+    const translations = new Map((result.translations || []).map((item) => [item.number, item]));
+    const translatedCards = cards.map((card) => {
+      const translation = translations.get(card.number);
+      if (!translation?.ok) return card;
+      return {
+        ...card,
+        name: translation.name || card.name,
+        text: translation.text || card.text,
+        tags: translation.traits || card.tags,
+        tagsList: Array.isArray(translation.attributes) && translation.attributes.length
+          ? translation.attributes
+          : card.tagsList,
+        cardType: translation.cardType || card.cardType,
+        section: translation.cardType || card.section,
+        color: translation.color || card.color,
+        level: translation.level || card.level,
+        cost: translation.cost || card.cost,
+        power: translation.power || card.power,
+        soul: translation.soul || card.soul,
+        trigger: translation.trigger || card.trigger,
+        rarity: translation.rarity || card.rarity,
+        translationUrl: translation.url || card.translationUrl || "",
+      };
+    });
+
+    setBusy(el.translateBtn, true, "Proxying...");
+    const proxyResult = await api("/api/weiss/proxy-deck", { name: deck.name || "deck", cards: translatedCards });
+    const proxiedCards = applyProxyImages(translatedCards, proxyResult.generated || []);
+
+    state.resolved = {
+      ...(state.resolved || {}),
+      cards: proxiedCards,
+      missing: state.resolved?.missing || [],
+      ambiguous: state.resolved?.ambiguous || [],
+      totalCards: proxiedCards.reduce((sum, card) => sum + Number(card.qty || 0), 0),
+      uniqueCards: proxiedCards.length,
+    };
+    const translatedDeck = { ...deck, cards: proxiedCards };
+
+    if (state.selectedId) {
+      const saved = await api("/api/decks", translatedDeck);
+      await loadDecks();
+      state.selectedId = saved.deck?.id || state.selectedId;
+      renderDeckList();
+    }
+
+    renderDeck(translatedDeck);
+
+    const translated = (result.translations || []).filter((item) => item.ok);
+    const missing = (result.translations || []).filter((item) => !item.ok);
+    const throttled = missing.some((item) => item.throttled);
+    const missLines = missing.map((item) => {
+      const urls = item.triedUrls?.length ? item.triedUrls.join(" | ") : item.url;
+      return `${item.number}: ${urls}${item.error ? ` (${item.error})` : ""}`;
+    }).join("\n");
+    const sourceNames = [...new Set(translated.map((item) => item.source || "Heart of the Cards"))];
+    const sourceText = sourceNames.length ? ` from ${sourceNames.join(" and ")}` : "";
+    const summary = throttled
+      ? `Translated ${translated.length} card(s)${sourceText}; stopped because HOTC asked us to go slower. Press Translate again later.`
+      : `Translated ${translated.length} card(s)${sourceText}${missing.length ? `; ${missing.length} not found.` : "."}`;
+    const proxySummary = `Generated ${proxyResult.generatedCount || 0} translated proxy image(s)${proxyResult.skippedCount ? `; skipped ${proxyResult.skippedCount}.` : "."}`;
+    log([
+      summary,
+      proxySummary,
+      state.selectedId ? "Saved translated text and proxy images to the deck." : "Save the deck to keep translated text and proxy images.",
+      missLines ? `Debug URLs:\n${missLines}` : "",
+    ].filter(Boolean).join("\n"));
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    setBusy(el.translateBtn, false, "Translate");
+  }
+}
+
 async function deleteSelectedDeck() {
   const deck = selectedDeck();
   if (!deck) return;
@@ -444,7 +543,7 @@ function renderDeck(deck) {
   el.cardGrid.innerHTML = cards.map((card, index) => `
     <article class="card ${isClimax(card) ? "climax" : ""}" data-card-index="${index}" tabindex="0">
       <div class="card-media">
-        ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
+        ${displayImageUrl(card) ? `<img src="${escapeAttr(displayImageUrl(card))}" alt="">` : ""}
       </div>
       <div class="card-body">
         <div class="card-title">x${card.qty} ${escapeHtml(card.name)}</div>
@@ -531,11 +630,12 @@ function renderSummaryStats(deck, counts, uniqueCards) {
 
 function openCardModal(card) {
   if (!card) return;
+  state.modalCard = card;
 
   el.modalCardName.textContent = card.name || "Unknown card";
   el.modalCardNumber.textContent = `x${card.qty || 1} ${card.number || ""}`;
   el.modalCardImageWrap.classList.toggle("climax", isClimax(card));
-  el.modalCardImageWrap.innerHTML = card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : "No image";
+  el.modalCardImageWrap.innerHTML = displayImageUrl(card) ? `<img src="${escapeAttr(displayImageUrl(card))}" alt="">` : "No image";
 
   const details = [
     ["Type", card.cardType || card.section],
@@ -560,7 +660,11 @@ function openCardModal(card) {
   `).join("") + (card.detailUrl ? `
     <dt>Link</dt>
     <dd><a href="${escapeAttr(card.detailUrl)}" target="_blank" rel="noopener noreferrer">Official Site</a></dd>
+  ` : "") + (card.translationUrl ? `
+    <dt>Translation</dt>
+    <dd><a href="${escapeAttr(card.translationUrl)}" target="_blank" rel="noopener noreferrer">Translation Source</a></dd>
   ` : "");
+  el.modalCardActions.innerHTML = proxyCardButtonHtml(card);
 
   el.modalCardText.innerHTML = cardRulesHtml(card);
   el.cardModal.classList.toggle("over-builder", !el.builderModal.hidden || !el.collectionModal.hidden);
@@ -568,8 +672,60 @@ function openCardModal(card) {
 }
 
 function closeCardModal() {
+  state.modalCard = null;
   el.cardModal.classList.remove("over-builder");
   el.cardModal.hidden = true;
+}
+
+function proxyCardButtonHtml(card) {
+  if (!isTranslatedJpWeissCard(card)) return "";
+  return `
+    <button type="button" data-generate-proxy>
+      Generate Proxy
+    </button>
+  `;
+}
+
+async function generateProxyForModalCard(button) {
+  const card = state.modalCard;
+  if (!card) return;
+
+  setBusy(button, true, "Generating...");
+  try {
+    const result = await api("/api/weiss/proxy-card", { card });
+    card.proxyImageUrl = result.outputUrl;
+    el.modalCardImageWrap.classList.toggle("climax", false);
+    el.modalCardImageWrap.innerHTML = `<img src="${escapeAttr(result.outputUrl)}" alt="">`;
+    setBusy(button, false, "Regenerate Proxy");
+    log(`Generated proxy card image:\n${result.outputPath}`);
+  } catch (error) {
+    log(error.message, true);
+    setBusy(button, false, "Generate Proxy");
+  }
+}
+
+function isTranslatedJpWeissCard(card) {
+  return card?.game === "Weiss Schwarz"
+    && Boolean(card.translationUrl)
+    && /^https:\/\/ws-tcg\.com\//i.test(String(card.imageUrl || ""))
+    && !/-E\d/i.test(String(card.number || ""));
+}
+
+function applyProxyImages(cards, generated) {
+  const proxies = new Map((generated || []).map((item) => [String(item.number || "").trim().toUpperCase(), item]));
+  return cards.map((card) => {
+    const proxy = proxies.get(String(card.number || "").trim().toUpperCase());
+    if (!proxy?.outputUrl) return card;
+    return {
+      ...card,
+      proxyImageUrl: proxy.outputUrl,
+      proxyOutputPath: proxy.outputPath || card.proxyOutputPath || "",
+    };
+  });
+}
+
+function displayImageUrl(card) {
+  return card.proxyImageUrl || card.imageUrl || "";
 }
 
 function cardRulesHtml(card) {
@@ -666,6 +822,29 @@ async function buildWeissCardDb() {
     el.settingsLog.textContent = error.message;
   } finally {
     setBusy(el.buildWeissDbBtn, false, "Build Weiss Card DB");
+  }
+}
+
+async function buildWeissJpCardDb() {
+  setBusy(el.buildWeissJpDbBtn, true, "Building...");
+  el.settingsLog.textContent = "Building Japanese Weiss card database. This can take a few minutes...";
+
+  try {
+    const result = await api("/api/weiss/build-db", { locale: "jp" });
+    renderBuildJob(result.job);
+
+    while (true) {
+      await sleep(1500);
+      const status = await api("/api/weiss/build-db/status");
+      const job = status.job;
+      renderBuildJob(job);
+
+      if (!job || job.status !== "running") break;
+    }
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.buildWeissJpDbBtn, false, "Build JP Weiss Card DB");
   }
 }
 
@@ -1512,6 +1691,7 @@ function formDeck() {
     status: el.statusInput.value,
     tags: el.tagsInput.value.trim(),
     imageUrl: el.imageUrlInput.value.trim(),
+    weissLocale: el.weissJpImportInput.checked ? "jp" : "en",
     sourceUrl: el.sourceUrlInput.value.trim(),
     notes: el.notesInput.value.trim(),
     cards: selectedDeck()?.cards || [],
