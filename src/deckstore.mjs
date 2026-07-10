@@ -55,7 +55,7 @@ function normalizeDeck(deck) {
   return {
     id: String(deck.id || randomUUID()),
     name: String(deck.name || "Untitled Deck"),
-    game: String(deck.game || "Weiss Schwarz"),
+    game: normalizeGame(deck.game, deck.weissLocale || deck.locale),
     weissLocale: String(deck.weissLocale || deck.locale || "").toLowerCase() === "jp" ? "jp" : "en",
     source: String(deck.source || ""),
     sourceUrl: String(deck.sourceUrl || ""),
@@ -72,9 +72,12 @@ function normalizeDeck(deck) {
 function normalizeCard(card) {
   return {
     qty: Number(card.qty || card.num || 1),
+    id: String(card.id || ""),
+    variantId: String(card.variantId || ""),
+    cardId: String(card.cardId || ""),
     number: String(card.number || card.cardNumber || ""),
     name: String(card.name || ""),
-    game: String(card.game || "Weiss Schwarz"),
+    game: normalizeGame(card.game, card.locale),
     locale: String(card.locale || ""),
     section: String(card.section || card.category || ""),
     cardType: String(card.cardType || ""),
@@ -82,7 +85,15 @@ function normalizeCard(card) {
     level: String(card.level || ""),
     bloomLevel: String(card.bloomLevel || ""),
     cost: String(card.cost || ""),
+    energy: String(card.energy || ""),
+    energyCost: String(card.energyCost || ""),
+    generatedEnergy: String(card.generatedEnergy || ""),
+    ap: String(card.ap || ""),
     power: String(card.power || ""),
+    bp: String(card.bp || ""),
+    might: String(card.might || ""),
+    mightBonus: String(card.mightBonus || ""),
+    maxCopies: String(card.maxCopies || ""),
     hp: String(card.hp || ""),
     life: String(card.life || ""),
     batonPass: String(card.batonPass || ""),
@@ -91,6 +102,19 @@ function normalizeCard(card) {
     rarity: String(card.rarity || card.rare || ""),
     text: String(card.text || card.cardText || ""),
     cardSet: String(card.cardSet || ""),
+    setCode: String(card.setCode || ""),
+    set: String(card.set || ""),
+    series: String(card.series || ""),
+    seriesName: String(card.seriesName || ""),
+    abbreviation: String(card.abbreviation || ""),
+    originalId: String(card.originalId || ""),
+    isAlternate: Boolean(card.isAlternate),
+    features: String(card.features || ""),
+    featureList: Array.isArray(card.featureList) ? card.featureList : [],
+    supertype: String(card.supertype || ""),
+    variantType: String(card.variantType || ""),
+    variantLabel: String(card.variantLabel || ""),
+    artist: String(card.artist || ""),
     keywords: Array.isArray(card.keywords) ? card.keywords : [],
     arts: Array.isArray(card.arts) ? card.arts : [],
     oshiSkills: Array.isArray(card.oshiSkills) ? card.oshiSkills : [],
@@ -100,11 +124,24 @@ function normalizeCard(card) {
     tags: String(card.tags || ""),
     tagsList: Array.isArray(card.tagsList) ? card.tagsList : [],
     imageUrl: String(card.imageUrl || ""),
+    rawImageUrl: String(card.rawImageUrl || ""),
+    renderedImagePageUrl: String(card.renderedImagePageUrl || ""),
     proxyImageUrl: String(card.proxyImageUrl || ""),
     proxyOutputPath: String(card.proxyOutputPath || ""),
     detailUrl: String(card.detailUrl || ""),
     translationUrl: String(card.translationUrl || ""),
   };
+}
+
+function normalizeGame(value, locale = "") {
+  const game = String(value || "").trim();
+  const isJp = String(locale || "").toLowerCase() === "jp";
+  if (game === "Weiss Schwarz" || game === "Weiss Schwarz (EN)") return isJp ? "Weiss Schwarz (JP)" : "Weiss Schwarz (EN)";
+  if (game === "Weiss Schwarz JP" || game === "Weiss Schwarz (JP)") return "Weiss Schwarz (JP)";
+  if (game === "Union Arena" || game === "Union Arena (EN)") return "Union Arena (EN)";
+  if (game === "Union Arena JP" || game === "Union Arena (JP)") return "Union Arena (JP)";
+  if (game === "Hololive OCG" || game === "Riftbound") return game;
+  return "Weiss Schwarz (EN)";
 }
 
 function preferredImage(cards) {

@@ -308,6 +308,38 @@ label {
   gap: 12px;
 }
 
+.deck-section {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.deck-section header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.deck-section h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.deck-section header span,
+.deck-section-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deck-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 12px;
+}
+
 .card {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -365,6 +397,14 @@ label {
   color: var(--muted);
   font-size: 12px;
   margin-top: 5px;
+}
+
+.card-action {
+  margin: 0 9px 9px;
+  min-height: 32px;
+  padding: 6px 8px;
+  font-size: 12px;
+  width: calc(100% - 18px);
 }
 
 .log {

@@ -2,7 +2,12 @@ data/decks.json
 data/settings.json
 data/collection.json
 data/translation-cache.json
-data/cards/weiss-jp-cards.json
+data/cards/*.json
+!data/cards/weiss-cards.json
+!data/cards/weiss-series.json
+!data/cards/hololive-cards.json
+!data/cards/.gitkeep
+NEXT_CHAT_HANDOFF.md
 outputs/
 logs/
 scratch/

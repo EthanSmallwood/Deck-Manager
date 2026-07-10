@@ -9,6 +9,8 @@ import { deleteDeck, loadDecks, upsertDeck } from "../src/deckstore.mjs";
 import { detectDecklogGame, fetchDecklogPayload } from "../src/games/decklog.mjs";
 import { clearWeissDatabaseCache, importDecklogDeck, importEncoreDeck, loadWeissDatabase, resolveWeissDeck } from "../src/games/weiss.mjs";
 import { importHololiveDecklogDeck, importHololiveDecklogPayload } from "../src/games/hololive.mjs";
+import { clearRiftboundDatabaseCache, importPiltoverDeck, loadRiftboundDatabase } from "../src/games/riftbound.mjs";
+import { clearUnionArenaDatabaseCache, importExburstUnionArenaDeck, loadUnionArenaDatabase } from "../src/games/union-arena.mjs";
 import { loadSettings, saveSettings } from "../src/settingsstore.mjs";
 import { getCachedTranslation, setCachedTranslation } from "../src/translationstore.mjs";
 import { generateHololiveTtsDeck, generateWeissTtsDeck, serveAsset } from "../src/tts/weiss-tts.mjs";
@@ -17,6 +19,8 @@ const PORT = Number(portArg() || process.env.PORT || 17777);
 let currentPort = PORT;
 let weissBuildJob = null;
 let hololiveBuildJob = null;
+let riftboundBuildJob = null;
+let unionArenaBuildJob = null;
 let weissSeriesCache = null;
 let encoreSeriesListCache = null;
 const encoreSeriesCardsCache = new Map();
@@ -40,10 +44,13 @@ const server = createServer(async (request, response) => {
       const db = loadWeissDatabase();
       sendJson(response, 200, {
         ok: true,
-        games: ["Weiss Schwarz", "Hololive OCG"],
+        games: ["Weiss Schwarz (EN)", "Weiss Schwarz (JP)", "Hololive OCG", "Riftbound", "Union Arena (EN)", "Union Arena (JP)"],
         weissCards: db.cards.length,
         weissJpCards: loadWeissDatabase("jp").cards.length,
         hololiveCards: countJsonCards("data/cards/hololive-cards.json"),
+        riftboundCards: loadRiftboundDatabase().length,
+        unionArenaCards: loadUnionArenaDatabase("en").length,
+        unionArenaJpCards: loadUnionArenaDatabase("jp").length,
       });
       return;
     }
@@ -71,12 +78,22 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/collection/weiss/cards") {
-      sendJson(response, 200, { ok: true, ...collectionCards(url, "Weiss Schwarz") });
+      sendJson(response, 200, { ok: true, ...collectionCards(url, "Weiss Schwarz (EN)") });
       return;
     }
 
     if (request.method === "GET" && url.pathname === "/api/collection/hololive/sets") {
       sendJson(response, 200, { ok: true, sets: listHololiveCardSets() });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/collection/riftbound/sets") {
+      sendJson(response, 200, { ok: true, sets: listRiftboundCardSets() });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/collection/union-arena/sets") {
+      sendJson(response, 200, { ok: true, sets: listUnionArenaCardSets(unionArenaLocaleFromUrl(url)) });
       return;
     }
 
@@ -127,6 +144,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/weiss/search") {
+      const locale = canonicalGame(url.searchParams.get("game") || "") === "Weiss Schwarz (JP)" ? "jp" : "en";
       const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
       const title = String(url.searchParams.get("title") || "").trim();
       const titleCodes = weissTitleCodes(title);
@@ -144,7 +162,7 @@ const server = createServer(async (request, response) => {
         soulMax: numberParam(url, "soulMax"),
         hideAlt: url.searchParams.get("hideAlt") === "1",
       };
-      const cards = loadWeissDatabase().cards
+      const cards = loadWeissDatabase(locale).cards
         .filter((card) => !titleCodes.length || titleCodes.includes(titleCode(card.number)))
         .filter((card) => matchesWeissFilters(card, filters))
         .filter((card) => {
@@ -164,7 +182,8 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/weiss/series") {
-      sendJson(response, 200, { ok: true, series: listWeissSeries() });
+      const locale = String(url.searchParams.get("locale") || "").toLowerCase() === "jp" || canonicalGame(url.searchParams.get("game") || "") === "Weiss Schwarz (JP)" ? "jp" : "en";
+      sendJson(response, 200, { ok: true, series: listWeissSeries(locale) });
       return;
     }
 
@@ -214,6 +233,20 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/riftbound/piltover") {
+      const body = await readJsonBody(request);
+      const result = await importPiltoverDeck(body.url || body.deckId || "");
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/union-arena/exburst") {
+      const body = await readJsonBody(request);
+      const result = await importExburstUnionArenaDeck(body.url || body.deckId || "");
+      sendJson(response, 200, result);
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/decklog/import") {
       const body = await readJsonBody(request);
       const decklog = await fetchDecklogPayload(body.url || body.deckId || "");
@@ -255,6 +288,43 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/riftbound/build-db") {
+      const job = startRiftboundCardDatabaseBuild();
+      sendJson(response, 202, { ok: true, job });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/riftbound/build-db/status") {
+      sendJson(response, 200, { ok: true, job: riftboundBuildJob });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/union-arena/build-db") {
+      const body = await readJsonBody(request);
+      const job = startUnionArenaCardDatabaseBuild(body.locale || "en");
+      sendJson(response, 202, { ok: true, job });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/union-arena/render-card") {
+      const body = await readJsonBody(request);
+      const result = renderUnionArenaCardImage(body.card || body);
+      sendJson(response, 200, { ok: true, ...result });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/union-arena/render-cards") {
+      const body = await readJsonBody(request);
+      const result = renderUnionArenaCardImages(body.cards || []);
+      sendJson(response, 200, { ok: true, ...result });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/union-arena/build-db/status") {
+      sendJson(response, 200, { ok: true, job: unionArenaBuildJob });
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/tts/weiss") {
       const body = await readJsonBody(request);
       const decks = loadDecks();
@@ -263,7 +333,7 @@ const server = createServer(async (request, response) => {
         sendJson(response, 404, { ok: false, error: "Deck not found." });
         return;
       }
-      if (deck.game !== "Weiss Schwarz" && deck.game !== "Hololive OCG") {
+      if (!isWeissGame(deck.game) && deck.game !== "Hololive OCG") {
         sendJson(response, 400, { ok: false, error: "TTS export currently supports Weiss Schwarz and Hololive OCG decks." });
         return;
       }
@@ -454,7 +524,7 @@ async function generateWeissProxyDeck(cards, deckName) {
 }
 
 function isProxyCandidate(card) {
-  return card?.game === "Weiss Schwarz"
+  return isWeissGame(card?.game)
     && String(card.translationUrl || "").trim()
     && String(card.text || "").trim()
     && /^https:\/\/ws-tcg\.com\//i.test(String(card.imageUrl || ""))
@@ -462,11 +532,148 @@ function isProxyCandidate(card) {
 }
 
 function proxySkipReason(card) {
-  if (card?.game !== "Weiss Schwarz") return "Not a Weiss Schwarz card.";
+  if (!isWeissGame(card?.game)) return "Not a Weiss Schwarz card.";
   if (!String(card?.translationUrl || "").trim() || !String(card?.text || "").trim()) return "Card has no translated text.";
   if (!/^https:\/\/ws-tcg\.com\//i.test(String(card?.imageUrl || ""))) return "Card does not have an official JP image URL.";
   if (/-E\d/i.test(String(card?.number || ""))) return "Card appears to be an English print.";
   return "Not eligible for proxy generation.";
+}
+
+function renderUnionArenaCardImage(card) {
+  if (!isUnionArenaJpCard(card)) {
+    throw new Error("Rendered ExBurst images are only available for Union Arena (JP) cards.");
+  }
+
+  const number = String(card.number || "").trim();
+  const url = String(card.renderedImagePageUrl || card.detailUrl || "").trim();
+  if (!number || !url) throw new Error("Union Arena JP card needs a number and ExBurst card page URL.");
+
+  const outputDir = resolve("outputs", "ua-rendered");
+  const outputPath = resolve(outputDir, `${safeFileName(number)}.png`);
+
+  if (!existsSync(outputPath)) {
+    const result = spawnSync(process.execPath, [
+      "scripts/render-exburst-union-arena-card.mjs",
+      "--url",
+      url,
+      "--output",
+      outputPath,
+    ], {
+      cwd: resolve("."),
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 60000,
+    });
+
+    if (result.status !== 0) {
+      throw new Error(`Union Arena render failed: ${result.stderr || result.stdout || result.status}`);
+    }
+  }
+
+  return {
+    number,
+    name: card.name || "",
+    outputPath,
+    outputUrl: new URL(relativeAssetPath(outputPath), `http://127.0.0.1:${currentPort}/assets/`).toString(),
+  };
+}
+
+function renderUnionArenaCardImages(cards) {
+  const requested = Array.isArray(cards) ? cards : [];
+  const outputDir = resolve("outputs", "ua-rendered");
+  mkdirSync(outputDir, { recursive: true });
+
+  const rendered = [];
+  const jobs = [];
+  const seen = new Set();
+  for (const card of requested) {
+    if (!isUnionArenaJpCard(card)) continue;
+    const number = String(card.number || "").trim();
+    const url = String(card.renderedImagePageUrl || card.detailUrl || "").trim();
+    if (!number || !url) continue;
+    const key = number.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const outputPath = resolve(outputDir, `${safeFileName(number)}.png`);
+    if (existsSync(outputPath)) {
+      rendered.push({
+        number,
+        name: card.name || "",
+        outputPath,
+        outputUrl: new URL(relativeAssetPath(outputPath), `http://127.0.0.1:${currentPort}/assets/`).toString(),
+        cached: true,
+      });
+      continue;
+    }
+
+    jobs.push({
+      number,
+      name: card.name || "",
+      url,
+      output: outputPath,
+    });
+  }
+
+  if (jobs.length) {
+    const batchPath = resolve(outputDir, `.render-batch-${process.pid}-${Date.now()}.json`);
+    writeFileSync(batchPath, JSON.stringify(jobs, null, 2));
+    try {
+      const result = spawnSync(process.execPath, [
+        "scripts/render-exburst-union-arena-card.mjs",
+        "--batch",
+        batchPath,
+      ], {
+        cwd: resolve("."),
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: Math.max(60000, jobs.length * 20000),
+      });
+
+      if (result.status !== 0) {
+        throw new Error(`Union Arena batch render failed: ${result.stderr || result.stdout || result.status}`);
+      }
+
+      const payload = parseLastJsonLine(result.stdout);
+      for (const item of payload.rendered || []) {
+        const outputPath = resolve(String(item.outputPath || ""));
+        rendered.push({
+          number: item.number || "",
+          name: item.name || "",
+          outputPath,
+          outputUrl: new URL(relativeAssetPath(outputPath), `http://127.0.0.1:${currentPort}/assets/`).toString(),
+          cached: false,
+        });
+      }
+    } finally {
+      rmSync(batchPath, { force: true });
+    }
+  }
+
+  return {
+    rendered,
+    requested: requested.length,
+    generated: jobs.length,
+    cached: rendered.filter((item) => item.cached).length,
+  };
+}
+
+function parseLastJsonLine(value) {
+  const lines = String(value || "").trim().split(/\r?\n/).filter(Boolean);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index].trim();
+    if (!line.startsWith("{")) continue;
+    try {
+      return JSON.parse(line);
+    } catch {
+      // Keep scanning for the script's final JSON payload.
+    }
+  }
+  return {};
+}
+
+function isUnionArenaJpCard(card) {
+  return canonicalGame(card?.game) === "Union Arena (JP)" || String(card?.locale || "").toLowerCase() === "jp" && /exburst\.dev\/ua\/cards\//i.test(String(card?.renderedImagePageUrl || card?.detailUrl || ""));
 }
 
 async function downloadFile(url, path) {
@@ -566,11 +773,16 @@ function matchesWeissFilters(card, filters) {
 }
 
 function collectionCards(url, fallbackGame = "") {
-  const game = String(url.searchParams.get("game") || fallbackGame || "Weiss Schwarz").trim();
-  return game === "Hololive OCG" ? collectionHololiveCards(url) : collectionWeissCards(url);
+  const game = canonicalGame(url.searchParams.get("game") || fallbackGame || "Weiss Schwarz (EN)");
+  if (game === "Hololive OCG") return collectionHololiveCards(url);
+  if (game === "Riftbound") return collectionRiftboundCards(url);
+  if (game === "Union Arena (EN)") return collectionUnionArenaCards(url, "en");
+  if (game === "Union Arena (JP)") return collectionUnionArenaCards(url, "jp");
+  if (game === "Weiss Schwarz (JP)") return collectionWeissCards(url, "jp");
+  return collectionWeissCards(url, "en");
 }
 
-function collectionWeissCards(url) {
+function collectionWeissCards(url, locale = "en") {
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
   const title = String(url.searchParams.get("title") || "").trim();
   const view = String(url.searchParams.get("view") || "all").trim().toLowerCase();
@@ -579,7 +791,7 @@ function collectionWeissCards(url) {
   const owned = loadCollection().cards;
   const filters = collectionFilters(url);
 
-  const cards = loadWeissDatabase().cards
+  const cards = loadWeissDatabase(locale).cards
     .filter((card) => !titleCodes.length || titleCodes.includes(titleCode(card.number)))
     .filter((card) => matchesWeissFilters(card, filters))
     .map((card) => ({ ...card, ownedQty: Number(owned[card.number] || 0), series: titleCode(card.number) }))
@@ -630,6 +842,97 @@ function collectionHololiveCards(url) {
   return pageCards(cards, url);
 }
 
+function canonicalGame(value) {
+  const game = String(value || "").trim();
+  if (game === "Weiss Schwarz" || game === "Weiss Schwarz (EN)") return "Weiss Schwarz (EN)";
+  if (game === "Weiss Schwarz JP" || game === "Weiss Schwarz (JP)") return "Weiss Schwarz (JP)";
+  if (game === "Union Arena" || game === "Union Arena (EN)") return "Union Arena (EN)";
+  if (game === "Union Arena JP" || game === "Union Arena (JP)") return "Union Arena (JP)";
+  return game || "Weiss Schwarz (EN)";
+}
+
+function isWeissGame(value) {
+  const game = canonicalGame(value);
+  return game === "Weiss Schwarz (EN)" || game === "Weiss Schwarz (JP)";
+}
+
+function collectionRiftboundCards(url) {
+  const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+  const cardSet = String(url.searchParams.get("cardSet") || url.searchParams.get("title") || "").trim();
+  const view = String(url.searchParams.get("view") || "all").trim().toLowerCase();
+  const sort = String(url.searchParams.get("sort") || "series").trim().toLowerCase();
+  const owned = loadCollection().cards;
+  const filters = collectionFilters(url);
+
+  const cards = loadRiftboundDatabase()
+    .filter((card) => !cardSet || riftboundCardSets(card).includes(cardSet))
+    .filter((card) => matchesRiftboundFilters(card, filters))
+    .map((card) => ({ ...card, ownedQty: Number(owned[card.number] || 0), series: card.setCode || card.cardSet || "" }))
+    .filter((card) => view !== "owned" || card.ownedQty > 0)
+    .filter((card) => view !== "unowned" || card.ownedQty <= 0)
+    .filter((card) => {
+      if (!q) return true;
+      return [
+        card.number,
+        card.name,
+        card.cardType,
+        card.supertype,
+        card.color,
+        card.rarity,
+        card.cardSet,
+        card.setCode,
+        card.variantType,
+        card.artist,
+        card.energy,
+        card.might,
+        card.power,
+        card.text,
+        card.tags,
+      ].join(" ").toLowerCase().includes(q);
+    });
+  sortCollectionCards(cards, sort);
+  return pageCards(cards, url);
+}
+
+function collectionUnionArenaCards(url, locale = "en") {
+  const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+  const cardSet = String(url.searchParams.get("cardSet") || url.searchParams.get("title") || "").trim();
+  const view = String(url.searchParams.get("view") || "all").trim().toLowerCase();
+  const sort = String(url.searchParams.get("sort") || "series").trim().toLowerCase();
+  const owned = loadCollection().cards;
+  const filters = collectionFilters(url);
+
+  const cards = loadUnionArenaDatabase(locale)
+    .filter((card) => !cardSet || unionArenaCardSets(card).includes(cardSet))
+    .filter((card) => matchesUnionArenaFilters(card, filters))
+    .map((card) => ({ ...card, ownedQty: Number(owned[card.number] || 0), series: card.series || card.seriesName || card.cardSet || "" }))
+    .filter((card) => view !== "owned" || card.ownedQty > 0)
+    .filter((card) => view !== "unowned" || card.ownedQty <= 0)
+    .filter((card) => {
+      if (!q) return true;
+      return [
+        card.number,
+        card.name,
+        card.cardType,
+        card.color,
+        card.rarity,
+        card.cardSet,
+        card.series,
+        card.seriesName,
+        card.abbreviation,
+        card.power,
+        card.ap,
+        card.cost,
+        card.generatedEnergy,
+        card.trigger,
+        card.text,
+        card.features,
+      ].join(" ").toLowerCase().includes(q);
+    });
+  sortCollectionCards(cards, sort);
+  return pageCards(cards, url);
+}
+
 function sortCollectionCards(cards, sort) {
   const bySeries = (a, b) => String(a.series || "").localeCompare(String(b.series || ""))
     || String(a.number || "").localeCompare(String(b.number || ""))
@@ -671,6 +974,26 @@ function matchesHololiveFilters(card, filters) {
   return true;
 }
 
+function matchesRiftboundFilters(card, filters) {
+  if (filters.type && !String(card.cardType || "").toLowerCase().includes(filters.type)) return false;
+  if (filters.color && !String(card.color || "").toLowerCase().split(/\s*\/\s*/).includes(filters.color)) return false;
+  if (!inRange(card.energy, filters.levelMin, filters.levelMax)) return false;
+  if (!inRange(card.energy, filters.costMin, filters.costMax)) return false;
+  if (!inRange(card.power, filters.powerMin, filters.powerMax)) return false;
+  return true;
+}
+
+function matchesUnionArenaFilters(card, filters) {
+  if (filters.type && !String(card.cardType || "").toLowerCase().includes(filters.type)) return false;
+  if (filters.color && String(card.color || "").toLowerCase() !== filters.color) return false;
+  if (filters.trigger && !String(card.trigger || "").toLowerCase().includes(filters.trigger)) return false;
+  if (filters.hideAlt && card.isAlternate) return false;
+  if (!inRange(card.energyCost || card.cost, filters.levelMin, filters.levelMax)) return false;
+  if (!inRange(card.energyCost || card.cost, filters.costMin, filters.costMax)) return false;
+  if (!inRange(card.power || card.bp, filters.powerMin, filters.powerMax)) return false;
+  return true;
+}
+
 function loadHololiveDatabase() {
   try {
     const cards = JSON.parse(readFileSync("data/cards/hololive-cards.json", "utf8"));
@@ -688,6 +1011,43 @@ function listHololiveCardSets() {
   return [...counts.entries()]
     .map(([name, cards]) => ({ id: name, name, cards }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function listRiftboundCardSets() {
+  const sets = new Map();
+  for (const card of loadRiftboundDatabase()) {
+    const id = card.setCode || card.set || card.cardSet;
+    if (!id) continue;
+    const current = sets.get(id) || { id, code: card.setCode || id, name: card.set || card.cardSet || id, cards: 0 };
+    current.cards += 1;
+    sets.set(id, current);
+  }
+  return [...sets.values()].sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name)));
+}
+
+function listUnionArenaCardSets(locale = "en") {
+  const sets = new Map();
+  for (const card of loadUnionArenaDatabase(locale)) {
+    const id = card.series || card.seriesName || card.cardSet || card.abbreviation;
+    if (!id) continue;
+    const current = sets.get(id) || {
+      id,
+      code: card.series || card.abbreviation || id,
+      name: card.seriesName || card.cardSet || id,
+      cards: 0,
+    };
+    current.cards += 1;
+    sets.set(id, current);
+  }
+  return [...sets.values()].sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name)));
+}
+
+function unionArenaCardSets(card) {
+  return [card.series, card.seriesName, card.cardSet].map((set) => String(set || "").trim()).filter(Boolean);
+}
+
+function riftboundCardSets(card) {
+  return [card.setCode, card.set, card.cardSet].map((set) => String(set || "").trim()).filter(Boolean);
 }
 
 function hololiveCardSets(card) {
@@ -754,10 +1114,10 @@ function titleCode(number) {
   return String(number || "").split("/")[0].toUpperCase();
 }
 
-function listWeissSeries() {
+function listWeissSeries(locale = "en") {
   const codeCounts = new Map();
 
-  for (const card of loadWeissDatabase().cards) {
+  for (const card of loadWeissDatabase(locale).cards) {
     const code = titleCode(card.number);
     if (!code) continue;
     const current = codeCounts.get(code) || { cards: 0, characterCards: 0, climaxCards: 0 };
@@ -945,6 +1305,118 @@ function appendHololiveBuildLog(text) {
   hololiveBuildJob.log = lines.slice(-40).join("\n");
 }
 
+function startRiftboundCardDatabaseBuild() {
+  if (riftboundBuildJob?.status === "running") return riftboundBuildJob;
+
+  riftboundBuildJob = {
+    id: new Date().toISOString(),
+    status: "running",
+    startedAt: new Date().toISOString(),
+    finishedAt: "",
+    riftboundCards: 0,
+    log: "Starting Riftbound card database build...",
+    error: "",
+  };
+
+  const child = spawn(process.execPath, [
+    "scripts/scrape-riftbound-piltover-cards.mjs",
+    "--output",
+    "data/cards/riftbound-cards.json",
+  ], {
+    cwd: resolve("."),
+    windowsHide: true,
+  });
+
+  child.stdout.on("data", (chunk) => appendRiftboundBuildLog(chunk.toString()));
+  child.stderr.on("data", (chunk) => appendRiftboundBuildLog(chunk.toString()));
+  child.on("error", (error) => {
+    riftboundBuildJob.status = "failed";
+    riftboundBuildJob.error = error.message || String(error);
+    riftboundBuildJob.finishedAt = new Date().toISOString();
+    appendRiftboundBuildLog(riftboundBuildJob.error);
+  });
+  child.on("close", (code) => {
+    riftboundBuildJob.finishedAt = new Date().toISOString();
+    if (code !== 0) {
+      riftboundBuildJob.status = "failed";
+      riftboundBuildJob.error = `Riftbound scraper exited with code ${code}.`;
+      appendRiftboundBuildLog(riftboundBuildJob.error);
+      return;
+    }
+
+    clearRiftboundDatabaseCache();
+    riftboundBuildJob.status = "complete";
+    riftboundBuildJob.riftboundCards = countRiftboundCards();
+    appendRiftboundBuildLog(`Build complete: ${riftboundBuildJob.riftboundCards} cards.`);
+  });
+
+  return riftboundBuildJob;
+}
+
+function appendRiftboundBuildLog(text) {
+  if (!riftboundBuildJob) return;
+  const lines = `${riftboundBuildJob.log}\n${text}`.trim().split(/\r?\n/);
+  riftboundBuildJob.log = lines.slice(-40).join("\n");
+}
+
+function startUnionArenaCardDatabaseBuild(locale = "en") {
+  const normalizedLocale = normalizeUnionArenaLocale(locale);
+  if (unionArenaBuildJob?.status === "running") return unionArenaBuildJob;
+
+  unionArenaBuildJob = {
+    id: new Date().toISOString(),
+    status: "running",
+    startedAt: new Date().toISOString(),
+    finishedAt: "",
+    locale: normalizedLocale,
+    unionArenaCards: 0,
+    log: `Starting Union Arena ${normalizedLocale === "jp" ? "JP" : "EN"} card database build...`,
+    error: "",
+  };
+
+  const child = spawn(process.execPath, [
+    "scripts/scrape-exburst-union-arena-cards.mjs",
+    "--locale",
+    normalizedLocale,
+    "--output",
+    normalizedLocale === "jp" ? "data/cards/union-arena-jp-cards.json" : "data/cards/union-arena-cards.json",
+  ], {
+    cwd: resolve("."),
+    windowsHide: true,
+  });
+
+  child.stdout.on("data", (chunk) => appendUnionArenaBuildLog(chunk.toString()));
+  child.stderr.on("data", (chunk) => appendUnionArenaBuildLog(chunk.toString()));
+  child.on("error", (error) => {
+    unionArenaBuildJob.status = "failed";
+    unionArenaBuildJob.error = error.message || String(error);
+    unionArenaBuildJob.finishedAt = new Date().toISOString();
+    appendUnionArenaBuildLog(unionArenaBuildJob.error);
+  });
+  child.on("close", (code) => {
+    unionArenaBuildJob.finishedAt = new Date().toISOString();
+    if (code !== 0) {
+      unionArenaBuildJob.status = "failed";
+      unionArenaBuildJob.error = `Union Arena scraper exited with code ${code}.`;
+      appendUnionArenaBuildLog(unionArenaBuildJob.error);
+      return;
+    }
+
+    clearUnionArenaDatabaseCache(normalizedLocale);
+    unionArenaBuildJob.status = "complete";
+    unionArenaBuildJob.unionArenaCards = countUnionArenaCards(normalizedLocale);
+    appendUnionArenaBuildLog(`Build complete: ${unionArenaBuildJob.unionArenaCards} cards.`);
+  });
+
+  return unionArenaBuildJob;
+}
+
+function appendUnionArenaBuildLog(text) {
+  if (!unionArenaBuildJob) return;
+  const lines = `${unionArenaBuildJob.log}\n${text}`.trim().split(/\r?\n/);
+  unionArenaBuildJob.log = lines.slice(-40).join("\n");
+}
+
 function countJsonCards(path) {
   try {
     if (!existsSync(path)) return 0;
@@ -953,6 +1425,40 @@ function countJsonCards(path) {
   } catch {
     return 0;
   }
+}
+
+function countRiftboundCards() {
+  try {
+    if (!existsSync("data/cards/riftbound-cards.json")) return 0;
+    const payload = JSON.parse(readFileSync("data/cards/riftbound-cards.json", "utf8"));
+    if (Array.isArray(payload)) return payload.length;
+    if (Array.isArray(payload.cards)) return payload.cards.length;
+    return Number(payload.counts?.cards || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function countUnionArenaCards(locale = "en") {
+  try {
+    const path = normalizeUnionArenaLocale(locale) === "jp" ? "data/cards/union-arena-jp-cards.json" : "data/cards/union-arena-cards.json";
+    if (!existsSync(path)) return 0;
+    const payload = JSON.parse(readFileSync(path, "utf8"));
+    if (Array.isArray(payload)) return payload.length;
+    if (Array.isArray(payload.cards)) return payload.cards.length;
+    return Number(payload.counts?.cards || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function unionArenaLocaleFromUrl(url) {
+  return canonicalGame(url.searchParams.get("game") || "") === "Union Arena (JP)" || String(url.searchParams.get("locale") || "").toLowerCase() === "jp" ? "jp" : "en";
+}
+
+function normalizeUnionArenaLocale(value) {
+  const locale = String(value || "").trim().toLowerCase();
+  return locale === "jp" || locale === "ja" ? "jp" : "en";
 }
 
 async function translateWeissCards(cards) {

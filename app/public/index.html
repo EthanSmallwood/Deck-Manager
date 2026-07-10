@@ -17,8 +17,12 @@
         <input id="search" type="search" placeholder="Search decks">
         <select id="gameFilter">
           <option>All Games</option>
-          <option>Weiss Schwarz</option>
+          <option>Weiss Schwarz (EN)</option>
+          <option>Weiss Schwarz (JP)</option>
           <option>Hololive OCG</option>
+          <option>Riftbound</option>
+          <option>Union Arena (EN)</option>
+          <option>Union Arena (JP)</option>
         </select>
       </div>
 
@@ -52,8 +56,12 @@
           <label>
             Game
             <select id="gameInput">
-              <option>Weiss Schwarz</option>
+              <option>Weiss Schwarz (EN)</option>
+              <option>Weiss Schwarz (JP)</option>
               <option>Hololive OCG</option>
+              <option>Riftbound</option>
+              <option>Union Arena (EN)</option>
+              <option>Union Arena (JP)</option>
             </select>
           </label>
           <label>
@@ -86,9 +94,8 @@
 
         <div class="importer">
           <div class="import-row">
-            <input id="deckUrlInput" placeholder="Encore or Decklog URL">
-            <button id="encoreBtn">Fill Encore</button>
-            <button id="decklogBtn">Fill Decklog</button>
+            <input id="deckUrlInput" placeholder="Encore, Decklog, or Piltover URL">
+            <button id="importUrlBtn">Import</button>
           </div>
           <textarea id="deckText" spellcheck="false" placeholder="Paste Weiss decklist here"></textarea>
           <div class="import-row">
@@ -143,14 +150,14 @@
       </header>
       <section class="settings-body">
         <div>
-          <h4>Weiss Schwarz</h4>
+          <h4>Weiss Schwarz (EN)</h4>
           <p>Rebuild the local card database from the official English Weiss card list.</p>
         </div>
-        <button id="buildWeissDbBtn">Build Weiss Card DB</button>
+        <button id="buildWeissDbBtn">Build Weiss (EN) Card DB</button>
       </section>
       <section class="settings-body">
         <div>
-          <h4>Weiss Schwarz JP</h4>
+          <h4>Weiss Schwarz (JP)</h4>
           <p>Build the local Japanese Weiss card database for JP card number imports.</p>
         </div>
         <button id="buildWeissJpDbBtn">Build JP Weiss Card DB</button>
@@ -161,6 +168,27 @@
           <p>Rebuild the local card database from the official English Hololive card list.</p>
         </div>
         <button id="buildHololiveDbBtn">Build Hololive Card DB</button>
+      </section>
+      <section class="settings-body">
+        <div>
+          <h4>Riftbound</h4>
+          <p>Rebuild the local Riftbound card database from Piltover Archive.</p>
+        </div>
+        <button id="buildRiftboundDbBtn">Build Riftbound Card DB</button>
+      </section>
+      <section class="settings-body">
+        <div>
+          <h4>Union Arena (EN)</h4>
+          <p>Rebuild the local Union Arena (EN) card database from ExBurst.</p>
+        </div>
+        <button id="buildUnionArenaDbBtn">Build Union Arena (EN) Card DB</button>
+      </section>
+      <section class="settings-body">
+        <div>
+          <h4>Union Arena (JP)</h4>
+          <p>Rebuild the local Union Arena (JP) card database from ExBurst.</p>
+        </div>
+        <button id="buildUnionArenaJpDbBtn">Build Union Arena (JP) Card DB</button>
       </section>
       <section class="settings-body">
         <div>
@@ -194,8 +222,12 @@
         <label>
           Game
           <select id="builderGameInput">
-            <option>Weiss Schwarz</option>
+            <option>Weiss Schwarz (EN)</option>
+            <option>Weiss Schwarz (JP)</option>
             <option>Hololive OCG</option>
+            <option>Riftbound</option>
+            <option>Union Arena (EN)</option>
+            <option>Union Arena (JP)</option>
           </select>
         </label>
         <label class="builder-series-field">
@@ -291,7 +323,7 @@
       <header class="card-dialog-header">
         <div>
           <h3>Collection</h3>
-          <p>Track owned Weiss cards and see what still needs buying.</p>
+          <p>Track owned cards and see what still needs buying.</p>
         </div>
         <button id="closeCollectionModal" aria-label="Close collection">Close</button>
       </header>
@@ -299,8 +331,12 @@
         <label class="collection-game-field">
           Game
           <select id="collectionGameFilter">
-            <option>Weiss Schwarz</option>
+            <option>Weiss Schwarz (EN)</option>
+            <option>Weiss Schwarz (JP)</option>
             <option>Hololive OCG</option>
+            <option>Riftbound</option>
+            <option>Union Arena (EN)</option>
+            <option>Union Arena (JP)</option>
           </select>
         </label>
         <label class="builder-series-field">

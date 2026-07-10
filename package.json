@@ -1,9 +1,13 @@
 {
   "name": "deckmanager",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node app/server.mjs"
+    "start": "node app/server.mjs",
+    "scrape:riftbound": "node scripts/scrape-riftbound-piltover-cards.mjs",
+    "scrape:union-arena": "node scripts/scrape-exburst-union-arena-cards.mjs",
+    "scrape:union-arena-jp": "node scripts/scrape-exburst-union-arena-cards.mjs --locale jp",
+    "render:union-arena-card": "node scripts/render-exburst-union-arena-card.mjs"
   }
 }
