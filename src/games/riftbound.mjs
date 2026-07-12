@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { normalizeDeckSection } from "../shared/deck-sections.mjs";
 
 const RIFTBOUND_DB_PATH = "data/cards/riftbound-cards.json";
 
@@ -40,7 +41,7 @@ export function normalizeRiftboundCard(input) {
     number: String(card.variantNumber || card.id || ""),
     name: String(card.name || ""),
     game: "Riftbound",
-    section: String(card.type || "Main"),
+    section: normalizeDeckSection({ section: card.section || card.type, cardType: card.type, supertype: card.supertype }, "Riftbound"),
     cardType: String(card.type || ""),
     supertype: String(card.supertype || ""),
     color: colors.join(" / "),
@@ -65,6 +66,15 @@ export function normalizeRiftboundCard(input) {
     imageUrl: String(card.imageUrl || ""),
     detailUrl: "",
     source: "Piltover Archive",
+    tts: {
+      slug: String(card.variantNumber || card.id || ""),
+      color_identity: colors.map((color) => color.toLowerCase()).join(","),
+      type: String(card.type || "").toLowerCase(),
+      rarity: rarityValue(card.rarity),
+      isSignature: String(card.supertype || "").toLowerCase() === "signature",
+      signature_key: signatureKey(card),
+      set: String(card.set || ""),
+    },
   };
 }
 
@@ -181,7 +191,7 @@ function resolveLegend(legend, db) {
       missing: true,
     };
   }
-  return { ...card, qty: 1, section: "Legend" };
+  return { ...card, qty: 1, section: "Legend", tts: { ...(card.tts || {}), type: "legend" } };
 }
 
 function readPiltoverEntries(entries, section, db) {
@@ -193,8 +203,8 @@ function readPiltoverEntries(entries, section, db) {
         number: String(entry.variantId || entry.cardId || ""),
         name: "Unknown Riftbound card",
         game: "Riftbound",
-        section,
-        cardType: section,
+      section: normalizeDeckSection({ section, cardType: section }, "Riftbound"),
+      cardType: section,
         variantId: String(entry.variantId || ""),
         cardId: String(entry.cardId || ""),
         missing: true,
@@ -203,7 +213,7 @@ function readPiltoverEntries(entries, section, db) {
     return {
       ...card,
       qty: Number(entry.quantity || 1),
-      section,
+      section: normalizeDeckSection({ ...card, section }, "Riftbound"),
       variantId: String(entry.variantId || card.variantId || ""),
       cardId: String(entry.cardId || card.cardId || ""),
     };
@@ -212,4 +222,20 @@ function readPiltoverEntries(entries, section, db) {
 
 function arrayValues(value) {
   return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : [];
+}
+
+function rarityValue(value) {
+  const rarity = String(value || "").toLowerCase();
+  if (rarity.includes("legend")) return 5;
+  if (rarity.includes("epic")) return 4;
+  if (rarity.includes("rare")) return 3;
+  if (rarity.includes("uncommon")) return 2;
+  if (rarity.includes("common")) return 1;
+  return 0;
+}
+
+function signatureKey(card) {
+  const tags = arrayValues(card.tags);
+  const champion = tags.find((tag) => tag && !["demacia", "noxus", "ionia", "piltover", "zaun", "freljord", "shurima", "targon", "ixtal", "bilgewater", "shadow isles", "bandle city"].includes(tag.toLowerCase()));
+  return champion || "";
 }

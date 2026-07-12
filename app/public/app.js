@@ -1,3 +1,10 @@
+import { deckSectionOrder, normalizeDeckSection, sectionGroupsForGame } from "/shared/deck-sections.mjs";
+import { validateHololiveDeck } from "/shared/game-rules/hololive.mjs";
+import { validateRiftboundDeck } from "/shared/game-rules/riftbound.mjs";
+import { validateUnionArenaDeck } from "/shared/game-rules/union-arena.mjs";
+import { filterRestrictionsForGame } from "/shared/game-rules/restrictions.mjs";
+import { validateWeissDeck } from "/shared/game-rules/weiss.mjs";
+
 const state = {
   decks: [],
   selectedId: "",
@@ -10,6 +17,7 @@ const state = {
   builderSeries: [],
   builderJpSeries: [],
   hololiveSets: [],
+  hololiveJpSets: [],
   riftboundSets: [],
   unionArenaSets: [],
   unionArenaJpSets: [],
@@ -19,6 +27,8 @@ const state = {
   collectionResultsHasMore: false,
   collectionResultsLoading: false,
   modalCard: null,
+  selectedRestrictionGame: "Weiss Schwarz (EN)",
+  settings: { cardGameRestrictions: { lastUpdated: "", entries: [] } },
 };
 
 const SEARCH_PAGE_SIZE = 120;
@@ -32,7 +42,11 @@ const BUILDER_FILTER_OPTIONS = {
     types: [["", "All"], ["Character", "Character"], ["Event", "Event"], ["Climax", "Climax"]],
     colors: [["", "All"], ["yellow", "Yellow"], ["green", "Green"], ["red", "Red"], ["blue", "Blue"]],
   },
-  "Hololive OCG": {
+  "Hololive OCG (EN)": {
+    types: [["", "All"], ["Oshi", "Oshi"], ["holomem", "Holomem"], ["Support", "Support"], ["Cheer", "Cheer"]],
+    colors: [["", "All"], ["Y", "Yellow"], ["G", "Green"], ["R", "Red"], ["B", "Blue"], ["W", "White"], ["P", "Purple"]],
+  },
+  "Hololive OCG (JP)": {
     types: [["", "All"], ["Oshi", "Oshi"], ["holomem", "Holomem"], ["Support", "Support"], ["Cheer", "Cheer"]],
     colors: [["", "All"], ["Y", "Yellow"], ["G", "Green"], ["R", "Red"], ["B", "Blue"], ["W", "White"], ["P", "Purple"]],
   },
@@ -94,12 +108,17 @@ const el = {
   buildWeissDbBtn: document.querySelector("#buildWeissDbBtn"),
   buildWeissJpDbBtn: document.querySelector("#buildWeissJpDbBtn"),
   buildHololiveDbBtn: document.querySelector("#buildHololiveDbBtn"),
+  buildHololiveJpDbBtn: document.querySelector("#buildHololiveJpDbBtn"),
   buildRiftboundDbBtn: document.querySelector("#buildRiftboundDbBtn"),
   buildUnionArenaDbBtn: document.querySelector("#buildUnionArenaDbBtn"),
   buildUnionArenaJpDbBtn: document.querySelector("#buildUnionArenaJpDbBtn"),
   clearImageCacheBtn: document.querySelector("#clearImageCacheBtn"),
   saveSettingsBtn: document.querySelector("#saveSettingsBtn"),
   ttsJsonExportDirInput: document.querySelector("#ttsJsonExportDirInput"),
+  restrictionGameInput: document.querySelector("#restrictionGameInput"),
+  restrictionDateInput: document.querySelector("#restrictionDateInput"),
+  restrictionsList: document.querySelector("#restrictionsList"),
+  addRestrictionBtn: document.querySelector("#addRestrictionBtn"),
   settingsLog: document.querySelector("#settingsLog"),
   builderModal: document.querySelector("#builderModal"),
   closeBuilderModal: document.querySelector("#closeBuilderModal"),
@@ -180,11 +199,15 @@ el.closeSettingsModal.addEventListener("click", closeSettingsModal);
 el.buildWeissDbBtn.addEventListener("click", buildWeissCardDb);
 el.buildWeissJpDbBtn.addEventListener("click", buildWeissJpCardDb);
 el.buildHololiveDbBtn.addEventListener("click", buildHololiveCardDb);
+el.buildHololiveJpDbBtn.addEventListener("click", buildHololiveJpCardDb);
 el.buildRiftboundDbBtn.addEventListener("click", buildRiftboundCardDb);
 el.buildUnionArenaDbBtn.addEventListener("click", buildUnionArenaCardDb);
 el.buildUnionArenaJpDbBtn.addEventListener("click", buildUnionArenaJpCardDb);
 el.clearImageCacheBtn.addEventListener("click", clearImageCache);
 el.saveSettingsBtn.addEventListener("click", saveSettings);
+el.addRestrictionBtn.addEventListener("click", addRestrictionRow);
+el.restrictionsList.addEventListener("click", handleRestrictionListClick);
+el.restrictionGameInput.addEventListener("change", switchRestrictionGame);
 el.closeBuilderModal.addEventListener("click", closeBuilderModal);
 el.builderGameInput.addEventListener("change", switchBuilderGame);
 el.builderSearchBtn.addEventListener("click", searchBuilderCards);
@@ -220,9 +243,6 @@ el.modalCardActions.addEventListener("click", (event) => {
   if (proxyButton) generateProxyForModalCard(proxyButton);
   const unionArenaButton = event.target.closest("[data-render-union-arena]");
   if (unionArenaButton) renderUnionArenaCardForModal(unionArenaButton);
-});
-el.settingsModal.addEventListener("click", (event) => {
-  if (event.target.matches("[data-close-settings]")) closeSettingsModal();
 });
 el.builderModal.addEventListener("click", (event) => {
   if (event.target.matches("[data-close-builder]")) closeBuilderModal();
@@ -263,7 +283,10 @@ async function boot() {
 
 async function loadSettings() {
   const result = await api("/api/settings");
+  state.settings = result.settings || { cardGameRestrictions: { lastUpdated: "", entries: [] } };
   el.ttsJsonExportDirInput.value = result.settings?.ttsJsonExportDir || "";
+  el.restrictionGameInput.value = state.selectedRestrictionGame;
+  renderRestrictionsEditor();
 }
 
 async function loadDecks() {
@@ -367,24 +390,71 @@ async function importFromUrl() {
   const value = el.deckUrlInput.value.trim();
   setBusy(el.importUrlBtn, true, "Importing...");
   try {
-    if (isPiltoverDeckUrl(value)) {
-      await fillFromPiltover();
-      return;
-    }
-    if (isExburstUnionArenaDeckUrl(value)) {
-      await fillFromExburstUnionArena();
-      return;
-    }
-    if (isEncoreDeckUrl(value)) {
-      await fillFromEncore();
-      return;
-    }
-    await fillFromDecklog();
+    await massImportFromUrls(value);
   } catch (error) {
     log(error.message, true);
   } finally {
     setBusy(el.importUrlBtn, false, "Import");
   }
+}
+
+async function massImportFromUrls(value) {
+  const result = await api("/api/import/mass", {
+    input: value,
+    save: true,
+    defaultStatus: el.statusInput.value,
+    defaultTags: el.tagsInput.value.trim(),
+  });
+
+  if (result.savedDecks?.length) {
+    await loadDecks();
+    state.selectedId = result.savedDecks.at(-1)?.id || state.selectedId;
+    renderDeckList();
+  }
+
+  const selected = result.savedDecks?.at(-1) || result.imported?.at(-1)?.deck;
+  if (selected) {
+    selectImportedDeckPreview(selected);
+  }
+
+  const imported = result.imported || [];
+  const failed = result.failed || [];
+  const missingTotal = imported.reduce((sum, item) => sum + Number(item.missingCount || 0), 0);
+  el.importStatus.textContent = `Imported ${imported.length}; failed ${failed.length}; missing ${missingTotal}`;
+  el.importStatus.classList.toggle("bad", Boolean(failed.length || missingTotal));
+
+  log(massImportSummary(result), Boolean(failed.length));
+}
+
+function selectImportedDeckPreview(deck) {
+  el.nameInput.value = deck.name || "";
+  el.gameInput.value = appGame(deck.game);
+  el.statusInput.value = deck.status || "Testing";
+  el.tagsInput.value = deck.tags || "";
+  el.sourceUrlInput.value = deck.sourceUrl || "";
+  el.deckText.value = deck.deckText || "";
+  el.weissJpImportInput.checked = appGame(deck.game) === "Weiss Schwarz (JP)" || deck.weissLocale === "jp";
+  state.resolved = {
+    cards: deck.cards || [],
+    totalCards: cardTotal(deck),
+    uniqueCards: deck.cards?.length || 0,
+    missing: [],
+    ambiguous: [],
+  };
+  renderDeck(deck);
+}
+
+function massImportSummary(result) {
+  const lines = [
+    `Mass import complete: ${result.imported?.length || 0} imported, ${result.failed?.length || 0} failed.`,
+  ];
+  for (const item of result.imported || []) {
+    lines.push(`OK: ${item.deckName} [${item.game}] - ${item.cards} cards${item.missingCount ? `, ${item.missingCount} missing` : ""}${item.saved ? " - saved" : ""}`);
+  }
+  for (const item of result.failed || []) {
+    lines.push(`FAILED: ${item.source} - ${item.error}`);
+  }
+  return lines.join("\n");
 }
 
 async function fillFromEncore() {
@@ -406,7 +476,7 @@ async function fillFromDecklog() {
   if (result.detectedGame && result.detectedGame !== "Unknown") {
     el.gameInput.value = appGame(result.detectedGame);
   }
-  const isHololive = result.detectedGame === "Hololive OCG";
+  const isHololive = isHololiveGame(result.detectedGame);
   el.deckText.value = result.deckText;
   el.nameInput.value ||= result.deckName;
   el.sourceUrlInput.value = el.deckUrlInput.value;
@@ -582,13 +652,13 @@ function renderDeck(deck) {
   el.deckTitle.textContent = deck.name || "Unsaved deck";
   el.deckMeta.textContent = `${appGame(deck.game)} - ${deck.status || "Testing"} - ${countSummary(deck)}`;
 
-  const cards = [...(deck.cards || [])].sort((a, b) => deckCardSort(deck, a, b));
+  const cards = normalizeDisplayCards(deck, deck.cards || []).sort((a, b) => deckCardSort(deck, a, b));
   const uniqueCards = deck.game === "Riftbound" ? mergeRiftboundDisplayCards(cards).length : cards.length;
   renderSummaryStats(deck, counts, uniqueCards);
   renderMissingCards(deck);
 
-  if (deck.game === "Riftbound") {
-    renderRiftboundDeckCards(deck, cards);
+  if (deck.game === "Riftbound" || isUnionArenaGame(deck.game)) {
+    renderSectionedDeckCards(deck, cards);
     return;
   }
 
@@ -596,16 +666,11 @@ function renderDeck(deck) {
   bindDeckCardTiles(cards);
 }
 
-function renderRiftboundDeckCards(deck, cards) {
+function renderSectionedDeckCards(deck, cards) {
   const displayCards = mergeRiftboundDisplayCards(cards).sort((a, b) => deckCardSort(deck, a, b));
-  const groups = [
-    ["Legend", displayCards.filter((card) => riftboundDisplaySection(card) === "Legend")],
-    ["Champion", displayCards.filter((card) => riftboundDisplaySection(card) === "Champion")],
-    ["Deck", displayCards.filter((card) => riftboundDisplaySection(card) === "Deck")],
-    ["Runes", displayCards.filter((card) => riftboundDisplaySection(card) === "Runes")],
-    ["Battlefields", displayCards.filter((card) => riftboundDisplaySection(card) === "Battlefields")],
-    ["Sideboard", displayCards.filter((card) => riftboundDisplaySection(card) === "Sideboard")],
-  ].filter(([label, group]) => label !== "Sideboard" || group.length);
+  const groups = sectionGroupsForGame(deck.game)
+    .map((label) => [label, displayCards.filter((card) => normalizeDeckSection(card, deck.game) === label)])
+    .filter(([label, group]) => !["Sideboard", "Action Points"].includes(label) || group.length);
 
   el.cardGrid.innerHTML = groups.map(([label, group]) => `
     <section class="deck-section">
@@ -614,7 +679,7 @@ function renderRiftboundDeckCards(deck, cards) {
         <span>${group.reduce((sum, card) => sum + Number(card.qty || 0), 0)} cards</span>
       </header>
       <div class="deck-section-grid">
-        ${group.map((card) => cardTileHtml(card, displayCards.indexOf(card), { riftbound: true })).join("") || `<div class="deck-section-empty">No ${escapeHtml(label.toLowerCase())} cards.</div>`}
+        ${group.map((card) => cardTileHtml(card, displayCards.indexOf(card), { riftbound: deck.game === "Riftbound" })).join("") || `<div class="deck-section-empty">No ${escapeHtml(label.toLowerCase())} cards.</div>`}
       </div>
     </section>
   `).join("");
@@ -622,15 +687,17 @@ function renderRiftboundDeckCards(deck, cards) {
 }
 
 function cardTileHtml(card, index, options = {}) {
-  const canSetChampion = options.riftbound && riftboundDisplaySection(card) === "Deck";
+  const canSetChampion = options.riftbound && normalizeDeckSection(card, "Riftbound") === "Deck";
   return `
     <article class="card ${isClimax(card) ? "climax" : ""}" data-card-index="${index}" tabindex="0">
       <div class="card-media">
         ${displayImageUrl(card) ? `<img src="${escapeAttr(displayImageUrl(card))}" alt="">` : ""}
+        ${restrictionOverlayHtml(card, card.game || el.gameInput.value)}
       </div>
       <div class="card-body">
         <div class="card-title">x${card.qty} ${escapeHtml(card.name)}</div>
         <div class="card-meta">${escapeHtml(card.number)}<br>${escapeHtml(card.cardType || card.section || "")} ${escapeHtml(card.color || "")}</div>
+        ${restrictionBadgeHtml(card, card.game || el.gameInput.value)}
       </div>
       ${canSetChampion ? `<button class="card-action" type="button" data-set-riftbound-champion="${index}">Set champion</button>` : ""}
     </article>
@@ -653,6 +720,63 @@ function bindDeckCardTiles(cards) {
       setRiftboundChampion(Number(button.dataset.setRiftboundChampion));
     });
   }
+}
+
+function normalizeDisplayCards(deck, cards) {
+  return (cards || []).map((card) => ({
+    ...card,
+    game: appGame(card.game || deck.game),
+    section: normalizeDeckSection(card, deck.game),
+  }));
+}
+
+function restrictionBadgeHtml(card, game = card?.game || "") {
+  const restriction = restrictionForCard(card, game);
+  if (!restriction) return "";
+  const label = restrictionLabel(restriction);
+  return `<div class="restriction-badge restriction-${escapeAttr(restriction.kind)}">${escapeHtml(label)}</div>`;
+}
+
+function restrictionOverlayHtml(card, game = card?.game || "") {
+  const restriction = restrictionForCard(card, game);
+  if (!restriction) return "";
+  return `<div class="restriction-overlay restriction-${escapeAttr(restriction.kind)}">${escapeHtml(restrictionShortLabel(restriction))}</div>`;
+}
+
+function restrictionForCard(card, game = card?.game || "") {
+  const restrictions = currentRestrictionsForGame(game).entries || [];
+  const cardName = normalizeRestrictionMatchText(card.name || card.englishName || card.title);
+  const cardNumber = normalizeRestrictionNumber(card.number || card.cardNo || card.originalId);
+  return restrictions.find((entry) => {
+    const entryName = normalizeRestrictionMatchText(entry.name);
+    const numbers = (entry.numbers || []).map(normalizeRestrictionNumber);
+    if (numbers.length) return cardNumber && numbers.includes(cardNumber);
+    return entryName && entryName === cardName;
+  }) || null;
+}
+
+function restrictionLabel(entry) {
+  if (entry.kind === "banned") return "Banned";
+  if (entry.kind === "restricted") return `Limited to ${entry.limit}`;
+  if (entry.kind === "choice") return `Choice: ${entry.group || "restricted group"}`;
+  if (entry.kind === "combination") return `Shared limit ${entry.limit}: ${entry.group || "group"}`;
+  return entry.kind || "Restricted";
+}
+
+function restrictionShortLabel(entry) {
+  if (entry.kind === "banned") return "Banned";
+  if (entry.kind === "restricted") return `Limit ${entry.limit}`;
+  if (entry.kind === "choice") return "Choice";
+  if (entry.kind === "combination") return `Shared ${entry.limit}`;
+  return "Restricted";
+}
+
+function normalizeRestrictionMatchText(value) {
+  return String(value || "").toLowerCase().replace(/[\u201c\u201d]/g, "\"").replace(/\s+/g, " ").trim();
+}
+
+function normalizeRestrictionNumber(value) {
+  return String(value || "").toUpperCase().replace(/\s+/g, "").trim();
 }
 
 async function renderUnionArenaDeckImages(deck, cards, unionArenaJpCards) {
@@ -708,9 +832,11 @@ function renderMissingCards(deck) {
     return;
   }
 
+  const validationHtml = deckValidationHtml(deck);
   const missing = deckMissingFromCollection(deck);
   if (!missing.length) {
     el.missingCardsPanel.innerHTML = `
+      ${validationHtml}
       <details class="missing-details">
         <summary><strong>Collection</strong><span class="ok">You own everything in this deck.</span></summary>
       </details>
@@ -720,6 +846,7 @@ function renderMissingCards(deck) {
 
   const total = missing.reduce((sum, card) => sum + card.missingQty, 0);
   el.missingCardsPanel.innerHTML = `
+    ${validationHtml}
     <details class="missing-details">
       <summary><strong>Needs buying</strong><span>${total} cards across ${missing.length} unique</span></summary>
       <div class="missing-list">
@@ -748,7 +875,7 @@ function deckMissingFromCollection(deck) {
 }
 
 function renderSummaryStats(deck, counts, uniqueCards) {
-  const stats = deck.game === "Hololive OCG"
+  const stats = isHololiveGame(deck.game)
     ? [
         ["Oshi", counts.oshi],
         ["Main", counts.main],
@@ -756,13 +883,12 @@ function renderSummaryStats(deck, counts, uniqueCards) {
         ["Unique", uniqueCards],
       ]
     : deck.game === "Riftbound"
-      ? [
-          ["Total", counts.total],
-          ["Unique", uniqueCards],
-        ]
+      ? sectionGroupsForGame(deck.game).map((label) => [label, counts.sections[label] || 0]).filter(([label, value]) => label !== "Sideboard" || value)
+        .concat([["Unique", uniqueCards]])
       : isUnionArenaGame(deck.game)
         ? [
-            ["Total", counts.total],
+            ["Main", counts.sections.Main || 0],
+            ["Action Points", counts.sections["Action Points"] || 0],
             ["Unique", uniqueCards],
           ]
       : [
@@ -854,6 +980,31 @@ function proxyCardButtonHtml(card) {
     <button type="button" data-generate-proxy>
       Generate Proxy
     </button>
+  `;
+}
+
+function deckValidationHtml(deck) {
+  const game = appGame(deck.game);
+  const validation = game === "Riftbound"
+    ? validateRiftboundDeck(deck.cards || [], { restrictions: currentRestrictionsForGame(game) })
+    : isHololiveGame(game)
+      ? validateHololiveDeck(deck.cards || [], { restrictions: currentRestrictionsForGame(game) })
+    : isUnionArenaGame(game)
+      ? validateUnionArenaDeck(deck.cards || [], game, { restrictions: currentRestrictionsForGame(game) })
+      : isWeissGame(game)
+        ? validateWeissDeck(deck.cards || [], { restrictions: currentRestrictionsForGame(game) })
+        : null;
+  if (!validation) return "";
+
+  const ok = validation.issues.length === 0;
+  return `
+    <details class="missing-details" open>
+      <summary><strong>Deck validation</strong><span class="${ok ? "ok" : "bad"}">${ok ? validation.passText : `${validation.issues.length} issue(s)`}</span></summary>
+      <div class="builder-counts">
+        ${validation.counts.map((count) => `<span class="${count.ok ? "ok" : "bad"}">${escapeHtml(count.label)}</span>`).join("")}
+      </div>
+      ${validation.issues.length ? `<ul>${validation.issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>` : ""}
+    </details>
   `;
 }
 
@@ -953,17 +1104,21 @@ function setRiftboundChampion(index) {
   const cards = currentEditableCards();
   const displayCards = mergeRiftboundDisplayCards(cards).sort((a, b) => deckCardSort({ game: "Riftbound" }, a, b));
   const displayed = displayCards[index];
-  const target = cards.find((card) => riftboundCardKey(card) === riftboundCardKey(displayed) && riftboundDisplaySection(card) === "Deck");
+  const target = cards.find((card) => riftboundCardKey(card) === riftboundCardKey(displayed) && normalizeDeckSection(card, "Riftbound") === "Deck");
   if (!target) return;
 
   for (const card of cards) {
-    if (riftboundDisplaySection(card) === "Champion") card.section = "Deck";
+    if (normalizeDeckSection(card, "Riftbound") === "Champion") card.section = "Deck";
+    card.riftboundChampion = false;
+    card.isChosenChampion = false;
+    card.tagsList = Array.isArray(card.tagsList) ? card.tagsList.filter((tag) => String(tag).toLowerCase() !== "chosen champion") : [];
+    card.tags = String(card.tags || "").split(/\s*\/\s*|\s*,\s*/).map((tag) => tag.trim()).filter((tag) => tag && tag.toLowerCase() !== "chosen champion").join(" / ");
   }
   if (Number(target.qty || 0) > 1) {
     target.qty = Number(target.qty || 0) - 1;
-    cards.push({ ...target, qty: 1, section: "Champion" });
+    cards.push(markRiftboundChampionCard({ ...target, qty: 1 }));
   } else {
-    target.section = "Champion";
+    Object.assign(target, markRiftboundChampionCard(target));
   }
 
   if (state.resolved?.cards?.length) state.resolved.cards = cards;
@@ -971,6 +1126,21 @@ function setRiftboundChampion(index) {
   if (deck?.cards?.length && !state.resolved?.cards?.length) deck.cards = cards;
   renderDeck({ ...formDeck(), cards });
   log(`${target.name} set as Riftbound champion. Save the deck to keep it.`);
+}
+
+function markRiftboundChampionCard(card) {
+  const tagsList = Array.isArray(card.tagsList) ? [...card.tagsList] : [];
+  if (!tagsList.some((tag) => String(tag).toLowerCase() === "chosen champion")) tagsList.push("Chosen Champion");
+  const tags = String(card.tags || "").split(/\s*\/\s*|\s*,\s*/).map((tag) => tag.trim()).filter(Boolean);
+  if (!tags.some((tag) => tag.toLowerCase() === "chosen champion")) tags.push("Chosen Champion");
+  return {
+    ...card,
+    section: "Champion",
+    riftboundChampion: true,
+    isChosenChampion: true,
+    tags: tags.join(" / "),
+    tagsList,
+  };
 }
 
 function currentEditableCards() {
@@ -984,12 +1154,13 @@ function mergeRiftboundDisplayCards(cards) {
   const byKey = new Map();
 
   for (const card of cards) {
-    const key = `${riftboundDisplaySection(card)}:${riftboundCardKey(card)}`;
+    const section = normalizeDeckSection(card, "Riftbound");
+    const key = `${section}:${riftboundCardKey(card)}`;
     const existing = byKey.get(key);
     if (existing) {
       existing.qty = Number(existing.qty || 0) + Number(card.qty || 0);
     } else {
-      const copy = { ...card, section: riftboundDisplaySection(card) };
+      const copy = { ...card, section };
       byKey.set(key, copy);
       merged.push(copy);
     }
@@ -1004,8 +1175,10 @@ function riftboundCardKey(card) {
 
 function cardRulesHtml(card) {
   const lines = [];
+  const hasHololiveStructuredText = isHololiveCard(card)
+    && ((card.keywords || []).length || (card.arts || []).length || (card.oshiSkills || []).length || card.extraText || card.extra?.text);
 
-  if (card.text) lines.push(card.text);
+  if (!hasHololiveStructuredText && (card.text || card.abilityText)) lines.push(card.text || card.abilityText);
 
   for (const keyword of card.keywords || []) {
     const header = [keyword.type, keyword.name].filter(Boolean).join(": ");
@@ -1038,7 +1211,7 @@ function detailValueHtml(card, label, value) {
 }
 
 function isHololiveCard(card) {
-  return card.game === "Hololive OCG"
+  return isHololiveGame(card.game)
     || Array.isArray(card.arts)
     || Array.isArray(card.keywords)
     || Boolean(card.batonPass || card.bloomLevel || card.hp || card.life || card.extraText);
@@ -1125,16 +1298,132 @@ async function buildWeissJpCardDb() {
 async function saveSettings() {
   setBusy(el.saveSettingsBtn, true, "Saving...");
   try {
+    commitVisibleRestrictions();
     const result = await api("/api/settings", {
       ttsJsonExportDir: el.ttsJsonExportDirInput.value.trim(),
+      cardGameRestrictions: state.settings.cardGameRestrictions,
     });
+    state.settings = result.settings || state.settings;
     el.ttsJsonExportDirInput.value = result.settings?.ttsJsonExportDir || "";
+    renderRestrictionsEditor();
     el.settingsLog.textContent = "Settings saved.";
   } catch (error) {
     el.settingsLog.textContent = error.message;
   } finally {
     setBusy(el.saveSettingsBtn, false, "Save Settings");
   }
+}
+
+function currentRestrictionsForGame(game) {
+  return filterRestrictionsForGame(state.settings?.cardGameRestrictions, game);
+}
+
+function renderRestrictionsEditor() {
+  const restrictions = state.settings?.cardGameRestrictions || {};
+  const entries = (restrictions.entries || []).filter((entry) => restrictionGameKey(entry.game) === restrictionGameKey(state.selectedRestrictionGame));
+  el.restrictionGameInput.value = state.selectedRestrictionGame;
+  el.restrictionDateInput.value = restrictions.lastUpdatedByGame?.[restrictionGameKey(state.selectedRestrictionGame)] || restrictions.lastUpdated || "";
+  el.restrictionsList.innerHTML = entries.map((entry, index) => restrictionRowHtml(entry, index)).join("")
+    || `<div class="restriction-empty">No restrictions yet. Add one when a game gets a ban list.</div>`;
+}
+
+function restrictionRowHtml(entry, index) {
+  const numbers = (entry.numbers || []).join(", ");
+  return `
+    <div class="restriction-row" data-restriction-index="${index}">
+      <select data-restriction-field="kind">
+        ${restrictionOptions(["banned", "restricted", "choice", "combination"], entry.kind || "restricted")}
+      </select>
+      <input data-restriction-field="limit" type="number" min="0" value="${escapeAttr(Number.isFinite(Number(entry.limit)) ? String(entry.limit) : "")}">
+      <input data-restriction-field="group" value="${escapeAttr(entry.group || "")}" placeholder="Set / choice group">
+      <input data-restriction-field="name" value="${escapeAttr(entry.name || "")}" placeholder="Card name">
+      <textarea data-restriction-field="numbers" rows="2" placeholder="Card numbers, comma separated">${escapeHtml(numbers)}</textarea>
+      <button type="button" data-remove-restriction="${index}" aria-label="Remove restriction">Remove</button>
+    </div>
+  `;
+}
+
+function restrictionOptions(options, selected) {
+  return options.map((option) => `<option${option === selected ? " selected" : ""}>${escapeHtml(option)}</option>`).join("");
+}
+
+function collectRestrictionEntries() {
+  return [...el.restrictionsList.querySelectorAll(".restriction-row")].map((row) => {
+    const value = (field) => row.querySelector(`[data-restriction-field="${field}"]`)?.value.trim() || "";
+    return {
+      game: state.selectedRestrictionGame,
+      kind: value("kind").toLowerCase(),
+      limit: value("limit") === "" ? "" : Number(value("limit")),
+      group: value("group"),
+      name: value("name"),
+      numbers: value("numbers").split(",").map((number) => number.trim()).filter(Boolean),
+    };
+  }).filter((entry) => entry.game && entry.kind && (entry.name || entry.numbers.length));
+}
+
+function addRestrictionRow() {
+  commitVisibleRestrictions();
+  state.settings.cardGameRestrictions = {
+    ...state.settings.cardGameRestrictions,
+    entries: [
+      ...(state.settings.cardGameRestrictions?.entries || []),
+      { game: state.selectedRestrictionGame, kind: "restricted", limit: 1, group: "", name: "", numbers: [] },
+    ],
+  };
+  renderRestrictionsEditor();
+  el.restrictionsList.querySelector(".restriction-row:last-child input[data-restriction-field='name']")?.focus();
+}
+
+function handleRestrictionListClick(event) {
+  const button = event.target.closest("[data-remove-restriction]");
+  if (!button) return;
+  const index = Number(button.dataset.removeRestriction);
+  const entries = collectRestrictionEntries();
+  entries.splice(index, 1);
+  replaceRestrictionsForSelectedGame(entries);
+  renderRestrictionsEditor();
+}
+
+function switchRestrictionGame() {
+  commitVisibleRestrictions();
+  state.selectedRestrictionGame = el.restrictionGameInput.value;
+  renderRestrictionsEditor();
+}
+
+function commitVisibleRestrictions() {
+  const restrictions = state.settings.cardGameRestrictions || { entries: [], lastUpdatedByGame: {} };
+  const lastUpdatedByGame = { ...(restrictions.lastUpdatedByGame || {}) };
+  lastUpdatedByGame[restrictionGameKey(state.selectedRestrictionGame)] = el.restrictionDateInput.value.trim();
+  state.settings.cardGameRestrictions = {
+    ...restrictions,
+    lastUpdated: restrictions.lastUpdated || lastUpdatedByGame["weiss schwarz (en)"] || "",
+    lastUpdatedByGame,
+  };
+  replaceRestrictionsForSelectedGame(collectRestrictionEntries());
+}
+
+function replaceRestrictionsForSelectedGame(entries) {
+  const restrictions = state.settings.cardGameRestrictions || { entries: [] };
+  const selectedKey = restrictionGameKey(state.selectedRestrictionGame);
+  state.settings.cardGameRestrictions = {
+    ...restrictions,
+    entries: [
+      ...(restrictions.entries || []).filter((entry) => restrictionGameKey(entry.game) !== selectedKey),
+      ...entries,
+    ],
+  };
+}
+
+function restrictionGameKey(value) {
+  const game = String(value || "").trim().toLowerCase();
+  if (game === "weiss schwarz" || game === "weiss schwarz (en)" || game === "weiss" || game === "ws") return "weiss schwarz (en)";
+  if (game === "weiss schwarz jp" || game === "weiss jp" || game === "ws jp" || game === "weiss schwarz (jp)") return "weiss schwarz (jp)";
+  if (game === "hololive" || game === "hololive ocg" || game === "hololive ocg (en)" || game === "hocg" || game === "hocg en") return "hololive ocg";
+  if (game === "hololive jp" || game === "hololive ocg jp" || game === "hololive ocg (jp)" || game === "hocg jp") return "hololive ocg (jp)";
+  if (game === "union arena" || game === "union arena en" || game === "union arena (en)" || game === "ua" || game === "ua en") return "union arena (en)";
+  if (game === "union arena jp" || game === "union arena (jp)" || game === "ua jp") return "union arena (jp)";
+  if (game === "riftbound") return "riftbound";
+  return game;
 }
 
 async function clearImageCache() {
@@ -1172,6 +1461,30 @@ async function buildHololiveCardDb() {
     el.settingsLog.textContent = error.message;
   } finally {
     setBusy(el.buildHololiveDbBtn, false, "Build Hololive Card DB");
+  }
+}
+
+async function buildHololiveJpCardDb() {
+  setBusy(el.buildHololiveJpDbBtn, true, "Building...");
+  el.settingsLog.textContent = "Building Hololive JP card database and applying translation sheet data...";
+
+  try {
+    const result = await api("/api/hololive/build-db", { locale: "jp" });
+    renderBuildJob(result.job, "hololive");
+
+    while (true) {
+      await sleep(1500);
+      const status = await api("/api/hololive/build-db/status");
+      const job = status.job;
+      renderBuildJob(job, "hololive");
+
+      if (!job || job.status !== "running") break;
+    }
+    state.hololiveJpSets = [];
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.buildHololiveJpDbBtn, false, "Build Hololive JP Card DB");
   }
 }
 
@@ -1303,7 +1616,7 @@ function renderBuildJob(job, game = "weiss") {
   }
 
   const countKey = game === "union-arena" ? "unionArenaCards" : game === "riftbound" ? "riftboundCards" : game === "hololive" ? "hololiveCards" : "weissCards";
-  const gameName = game === "union-arena" ? `Union Arena (${job.locale === "jp" ? "JP" : "EN"})` : game === "riftbound" ? "Riftbound" : game === "hololive" ? "Hololive" : "Weiss";
+  const gameName = game === "union-arena" ? `Union Arena (${job.locale === "jp" ? "JP" : "EN"})` : game === "riftbound" ? "Riftbound" : game === "hololive" ? `Hololive (${job.locale === "jp" ? "JP" : "EN"})` : "Weiss";
   const heading = job.status === "complete"
     ? `${gameName} build complete: ${Number(job[countKey] || 0).toLocaleString()} cards.`
     : job.status === "failed"
@@ -1326,7 +1639,7 @@ async function openBuilderModal() {
   renderBuilderSeriesOptions();
   el.builderSeriesSelect.value = builderSeriesId();
   syncBuilderGameUi();
-  if (game === "Hololive OCG" && !hasHololiveOshi(state.builderCards)) {
+  if (isHololiveGame(game) && !hasHololiveOshi(state.builderCards)) {
     clearBuilderFilters(false);
     primeHololiveOshiFilter();
   }
@@ -1411,7 +1724,8 @@ function builderSeriesLabel(series) {
 }
 
 function builderSeriesOptions() {
-  if (el.builderGameInput.value === "Hololive OCG") return state.hololiveSets;
+  if (el.builderGameInput.value === "Hololive OCG (EN)") return state.hololiveSets;
+  if (el.builderGameInput.value === "Hololive OCG (JP)") return state.hololiveJpSets;
   if (el.builderGameInput.value === "Riftbound") return state.riftboundSets;
   if (el.builderGameInput.value === "Union Arena (EN)") return state.unionArenaSets;
   if (el.builderGameInput.value === "Union Arena (JP)") return state.unionArenaJpSets;
@@ -1439,7 +1753,7 @@ async function switchBuilderGame() {
 }
 
 function syncBuilderGameUi() {
-  const isHolo = el.builderGameInput.value === "Hololive OCG";
+  const isHolo = isHololiveGame(el.builderGameInput.value);
   const isRiftbound = el.builderGameInput.value === "Riftbound";
   const isUnionArena = isUnionArenaGame(el.builderGameInput.value);
   el.builderHeading.textContent = isHolo ? "Hololive Deck Builder" : isRiftbound ? "Riftbound Deck Builder" : isUnionArena ? "Union Arena Deck Builder" : "Weiss Deck Builder";
@@ -1524,10 +1838,13 @@ function renderCollectionSeriesOptions() {
   syncCollectionSeriesButton();
 }
 
-async function loadHololiveSets() {
-  if (state.hololiveSets.length) return;
-  const result = await api("/api/collection/hololive/sets");
-  state.hololiveSets = result.sets || [];
+async function loadHololiveSets(locale = "en") {
+  const isJp = locale === "jp";
+  if (isJp && state.hololiveJpSets.length) return;
+  if (!isJp && state.hololiveSets.length) return;
+  const result = await api(`/api/collection/hololive/sets?locale=${isJp ? "jp" : "en"}`);
+  if (isJp) state.hololiveJpSets = result.sets || [];
+  else state.hololiveSets = result.sets || [];
 }
 
 async function loadRiftboundSets() {
@@ -1549,14 +1866,16 @@ async function loadGameSets(game) {
   const normalized = appGame(game);
   if (normalized === "Weiss Schwarz (EN)") await loadBuilderSeries("en");
   if (normalized === "Weiss Schwarz (JP)") await loadBuilderSeries("jp");
-  if (normalized === "Hololive OCG") await loadHololiveSets();
+  if (normalized === "Hololive OCG (EN)") await loadHololiveSets("en");
+  if (normalized === "Hololive OCG (JP)") await loadHololiveSets("jp");
   if (normalized === "Riftbound") await loadRiftboundSets();
   if (normalized === "Union Arena (EN)") await loadUnionArenaSets("en");
   if (normalized === "Union Arena (JP)") await loadUnionArenaSets("jp");
 }
 
 function collectionSeriesOptions() {
-  if (el.collectionGameFilter.value === "Hololive OCG") return state.hololiveSets;
+  if (el.collectionGameFilter.value === "Hololive OCG (EN)") return state.hololiveSets;
+  if (el.collectionGameFilter.value === "Hololive OCG (JP)") return state.hololiveJpSets;
   if (el.collectionGameFilter.value === "Riftbound") return state.riftboundSets;
   if (el.collectionGameFilter.value === "Union Arena (EN)") return state.unionArenaSets;
   if (el.collectionGameFilter.value === "Union Arena (JP)") return state.unionArenaJpSets;
@@ -1720,10 +2039,12 @@ function renderCollectionCards() {
       <div class="builder-card-media">
         ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
         ${card.ownedQty ? `<span>x${card.ownedQty}</span>` : ""}
+        ${restrictionOverlayHtml(card, el.collectionGameFilter.value)}
       </div>
       <div>
         <strong>${escapeHtml(card.name)}</strong>
         <span>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")} ${escapeHtml(card.color || "")}</span>
+        ${restrictionBadgeHtml(card, el.collectionGameFilter.value)}
       </div>
       <div class="collection-controls">
         <button data-collection-minus="${escapeAttr(card.number)}">-</button>
@@ -1792,7 +2113,7 @@ function builderFilterInputs() {
 }
 
 function appendBuilderFilterParams(params) {
-  const isHolo = el.builderGameInput.value === "Hololive OCG";
+  const isHolo = isHololiveGame(el.builderGameInput.value);
   const values = {
     type: el.builderTypeFilter.value,
     color: el.builderColorFilter.value,
@@ -1830,10 +2151,12 @@ function renderBuilderResults() {
       <div class="builder-card-media">
         ${card.imageUrl ? `<img src="${escapeAttr(card.imageUrl)}" alt="">` : ""}
         ${selectedQty ? `<span>x${selectedQty}</span>` : ""}
+        ${restrictionOverlayHtml(card, el.builderGameInput.value)}
       </div>
       <div>
         <strong>${escapeHtml(card.name)}</strong>
         <span>${escapeHtml(card.number)} - ${escapeHtml(card.cardType || "")} ${escapeHtml(card.color || "")}</span>
+        ${restrictionBadgeHtml(card, el.builderGameInput.value)}
       </div>
       <button data-builder-add="${index}">Add</button>
     </article>
@@ -1872,7 +2195,7 @@ function addBuilderCard(card) {
   }
   syncBuilderSeriesButton();
   renderBuilderDeck();
-  if (el.builderGameInput.value === "Hololive OCG" && isOshiCard(card) && el.builderTypeFilter.value) {
+  if (isHololiveGame(el.builderGameInput.value) && isOshiCard(card) && el.builderTypeFilter.value) {
     clearBuilderFilters(false);
     searchBuilderCards();
   } else {
@@ -1941,13 +2264,13 @@ function renderBuilderDeck() {
 }
 
 function renderBuilderValidation() {
-  const v = el.builderGameInput.value === "Hololive OCG"
-    ? validateHololiveDeck(state.builderCards)
+  const v = isHololiveGame(el.builderGameInput.value)
+    ? validateHololiveDeck(state.builderCards, { restrictions: currentRestrictionsForGame(el.builderGameInput.value) })
     : el.builderGameInput.value === "Riftbound"
-      ? validateRiftboundDeck(state.builderCards)
+      ? validateRiftboundDeck(state.builderCards, { restrictions: currentRestrictionsForGame(el.builderGameInput.value) })
       : isUnionArenaGame(el.builderGameInput.value)
-        ? validateUnionArenaDeck(state.builderCards)
-      : validateWeissNeoStandard(state.builderCards, selectedBuilderSeries());
+        ? validateUnionArenaDeck(state.builderCards, el.builderGameInput.value, { restrictions: currentRestrictionsForGame(el.builderGameInput.value) })
+      : validateWeissDeck(state.builderCards, { selectedSeries: selectedBuilderSeries(), restrictions: currentRestrictionsForGame(el.builderGameInput.value) });
   el.builderValidation.innerHTML = `
     <div class="builder-counts">
       ${v.counts.map((count) => `<span class="${count.ok ? "ok" : "bad"}">${escapeHtml(count.label)}</span>`).join("")}
@@ -1984,60 +2307,6 @@ function validateWeissNeoStandard(cards, selectedSeries) {
       { label: `Series ${selectedSeries ? `${selectedSeries.name} (${(selectedSeries.codes || []).join(", ")})` : titles[0] || "-"}`, ok: allowedCodes.size ? outsideSeries.length === 0 : titles.length <= 1 },
     ],
     passText: "Neo-Standard checks pass.",
-    issues,
-  };
-}
-
-function validateHololiveDeck(cards) {
-  const counts = deckCounts({ game: "Hololive OCG", cards });
-  const issues = [];
-  if (counts.oshi !== 1) issues.push("Hololive decks should have exactly 1 Oshi card.");
-  if (counts.main !== 50) issues.push("Hololive main deck should contain exactly 50 cards.");
-  if (counts.cheer > 20) issues.push("Cheer deck should contain at most 20 cards.");
-  for (const card of cards) {
-    if (Number(card.qty || 0) > 4 && !isHololiveCheerCard(card) && !isHololiveExtraCard(card)) {
-      issues.push(`${card.number} has ${card.qty} copies. Maximum is 4 unless the card is Cheer or has Extra.`);
-    }
-  }
-
-  return {
-    counts: [
-      { label: `Oshi ${counts.oshi}/1`, ok: counts.oshi === 1 },
-      { label: `Main ${counts.main}/50`, ok: counts.main === 50 },
-      { label: `Cheer ${counts.cheer}/20`, ok: counts.cheer <= 20 },
-    ],
-    passText: "Hololive deck checks pass.",
-    issues,
-  };
-}
-
-function validateRiftboundDeck(cards) {
-  const total = cards.reduce((sum, card) => sum + Number(card.qty || 0), 0);
-  const unique = cards.length;
-  return {
-    counts: [
-      { label: `Total ${total}`, ok: true },
-      { label: `Unique ${unique}`, ok: true },
-    ],
-    passText: "Riftbound list ready.",
-    issues: [],
-  };
-}
-
-function validateUnionArenaDeck(cards) {
-  const total = cards.reduce((sum, card) => sum + Number(card.qty || 0), 0);
-  const issues = [];
-  if (total !== 50) issues.push("Union Arena decks should contain exactly 50 cards.");
-  for (const card of cards) {
-    if (Number(card.qty || 0) > 4) issues.push(`${card.number} has ${card.qty} copies. Maximum is 4.`);
-  }
-
-  return {
-    counts: [
-      { label: `Total ${total}/50`, ok: total === 50 },
-      { label: `Unique ${cards.length}`, ok: true },
-    ],
-    passText: "Union Arena deck checks pass.",
     issues,
   };
 }
@@ -2124,6 +2393,13 @@ function normalizeBuilderCard(card) {
     rawImageUrl: card.rawImageUrl || "",
     renderedImagePageUrl: card.renderedImagePageUrl || "",
     detailUrl: card.detailUrl || "",
+    jpName: card.jpName || "",
+    jpText: card.jpText || "",
+    jpAbilityText: card.jpAbilityText || "",
+    translatedName: card.translatedName || "",
+    translatedText: card.translatedText || "",
+    translationSource: card.translationSource || "",
+    translationNotes: card.translationNotes || "",
   };
 }
 
@@ -2132,7 +2408,7 @@ function hasHololiveOshi(cards) {
 }
 
 function primeHololiveOshiFilter() {
-  if (el.builderGameInput.value === "Hololive OCG" && !hasHololiveOshi(state.builderCards)) {
+  if (isHololiveGame(el.builderGameInput.value) && !hasHololiveOshi(state.builderCards)) {
     el.builderTypeFilter.value = "Oshi";
   }
 }
@@ -2151,19 +2427,13 @@ function isHololiveExtraCard(card) {
 }
 
 function builderSection(card, game) {
-  if (game === "Riftbound") return card.cardType || "Main";
-  if (isUnionArenaGame(game)) return card.cardType || "Main";
-  if (game !== "Hololive OCG") return isClimax(card) ? "Climax" : card.cardType || "Main";
-  const type = String(card.cardType || "").toLowerCase();
-  if (type.includes("oshi")) return "Oshi";
-  if (type.includes("cheer")) return "Cheer";
-  return "Main";
+  return normalizeDeckSection(card, game);
 }
 
 function builderSeriesId() {
-  if (el.builderGameInput.value === "Hololive OCG") {
+  if (isHololiveGame(el.builderGameInput.value)) {
     const sets = [...new Set(state.builderCards.flatMap((card) => String(card.cardSet || "").split(/\r?\n/).map((set) => set.trim()).filter(Boolean)))];
-    const match = state.hololiveSets.find((set) => sets.includes(set.name));
+    const match = builderSeriesOptions().find((set) => sets.includes(set.name));
     return match?.id || "";
   }
   if (el.builderGameInput.value === "Riftbound") {
@@ -2205,7 +2475,9 @@ function appGame(value) {
   if (game === "Weiss Schwarz JP" || game === "Weiss Schwarz (JP)") return "Weiss Schwarz (JP)";
   if (game === "Union Arena" || game === "Union Arena (EN)") return "Union Arena (EN)";
   if (game === "Union Arena JP" || game === "Union Arena (JP)") return "Union Arena (JP)";
-  if (game === "Hololive OCG" || game === "Riftbound") return game;
+  if (game === "Hololive JP" || game === "Hololive OCG JP" || game === "Hololive OCG (JP)") return "Hololive OCG (JP)";
+  if (game === "Hololive" || game === "Hololive OCG" || game === "Hololive OCG EN" || game === "Hololive OCG (EN)") return "Hololive OCG (EN)";
+  if (game === "Hololive OCG (JP)" || game === "Riftbound") return game;
   return "Weiss Schwarz (EN)";
 }
 
@@ -2214,32 +2486,22 @@ function isWeissGame(value) {
   return game === "Weiss Schwarz (EN)" || game === "Weiss Schwarz (JP)";
 }
 
+function isHololiveGame(value) {
+  const game = appGame(value);
+  return game === "Hololive OCG (EN)" || game === "Hololive OCG (JP)";
+}
+
 function isUnionArenaGame(value) {
   const game = appGame(value);
   return game === "Union Arena (EN)" || game === "Union Arena (JP)";
 }
 
 function deckCardSort(deck, a, b) {
-  if (deck.game === "Riftbound") {
-    return riftboundSectionOrder(a) - riftboundSectionOrder(b)
+  if (deck.game === "Riftbound" || isUnionArenaGame(deck.game)) {
+    return deckSectionOrder(a, deck.game) - deckSectionOrder(b, deck.game)
       || String(a.number || "").localeCompare(String(b.number || ""));
   }
   return Number(isClimax(a)) - Number(isClimax(b)) || String(a.number || "").localeCompare(String(b.number || ""));
-}
-
-function riftboundSectionOrder(card) {
-  return { Legend: 0, Champion: 1, Deck: 2, Runes: 3, Battlefields: 4, Sideboard: 5 }[riftboundDisplaySection(card)] ?? 9;
-}
-
-function riftboundDisplaySection(card) {
-  const section = String(card.section || "").toLowerCase();
-  const type = String(card.cardType || "").toLowerCase();
-  if (section === "legend" || type === "legend") return "Legend";
-  if (section === "champion") return "Champion";
-  if (section === "rune" || section === "runes" || type === "rune") return "Runes";
-  if (section === "battlefield" || section === "battlefields" || type === "battlefield") return "Battlefields";
-  if (section === "sideboard") return "Sideboard";
-  return "Deck";
 }
 
 function isPiltoverDeckUrl(value) {
@@ -2297,33 +2559,54 @@ function deckCounts(deck) {
     oshi: 0,
     climax: 0,
     displayTotal: 0,
+    sections: {},
   };
 
   for (const card of deck.cards || []) {
     const qty = Number(card.qty || 1);
     counts.total += qty;
+    const section = normalizeDeckSection(card, deck.game);
+    counts.sections[section] = (counts.sections[section] || 0) + qty;
 
-    const section = String(card.section || "").toLowerCase();
-    if (section === "oshi") counts.oshi += qty;
-    else if (section === "cheer") counts.cheer += qty;
+    if (section === "Oshi") counts.oshi += qty;
+    else if (section === "Cheer") counts.cheer += qty;
+    else if (section === "Climax") counts.climax += qty;
     else if (isClimax(card)) counts.climax += qty;
     else counts.main += qty;
   }
 
-  counts.displayTotal = deck.game === "Hololive OCG" ? counts.main : counts.total;
+  counts.displayTotal = isHololiveGame(deck.game) ? counts.main : counts.total;
   return counts;
 }
 
 function countSummary(deck) {
   const counts = deckCounts(deck);
-  if (deck.game === "Hololive OCG") {
+  if (isHololiveGame(deck.game)) {
     return `Main ${counts.main} / Cheer ${counts.cheer} / Oshi ${counts.oshi}`;
+  }
+  if (isUnionArenaGame(deck.game)) {
+    return `Main ${counts.sections.Main || 0} / AP ${counts.sections["Action Points"] || 0}`;
+  }
+  if (deck.game === "Riftbound") {
+    return sectionGroupsForGame(deck.game)
+      .map((section) => [section, counts.sections[section] || 0])
+      .filter(([section, count]) => section !== "Sideboard" || count)
+      .map(([section, count]) => `${section} ${count}`)
+      .join(" / ");
   }
   return `${counts.total} cards`;
 }
 
 function isClimax(card) {
-  return String(card.cardType || card.section || "").toLowerCase().includes("climax");
+  const typeText = [
+    card.type,
+    card.cardType,
+    card.card_kind,
+    card.cardKind,
+    card.kind,
+    card.section,
+  ].map((value) => String(value || "").toLowerCase()).join(" ");
+  return typeText.includes("climax") || typeText.includes("cx") || typeText.includes("\u30af\u30e9\u30a4\u30de\u30c3\u30af\u30b9");
 }
 
 function deckSearch(deck) {

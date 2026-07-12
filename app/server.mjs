@@ -8,12 +8,12 @@ import { loadCollection, setOwnedQuantity } from "../src/collectionstore.mjs";
 import { deleteDeck, loadDecks, upsertDeck } from "../src/deckstore.mjs";
 import { detectDecklogGame, fetchDecklogPayload } from "../src/games/decklog.mjs";
 import { clearWeissDatabaseCache, importDecklogDeck, importEncoreDeck, loadWeissDatabase, resolveWeissDeck } from "../src/games/weiss.mjs";
-import { importHololiveDecklogDeck, importHololiveDecklogPayload } from "../src/games/hololive.mjs";
+import { clearHololiveDatabaseCache, importHololiveDecklogDeck, importHololiveDecklogPayload, loadHololiveDatabase as loadHololiveGameDatabase } from "../src/games/hololive.mjs";
 import { clearRiftboundDatabaseCache, importPiltoverDeck, loadRiftboundDatabase } from "../src/games/riftbound.mjs";
 import { clearUnionArenaDatabaseCache, importExburstUnionArenaDeck, loadUnionArenaDatabase } from "../src/games/union-arena.mjs";
 import { loadSettings, saveSettings } from "../src/settingsstore.mjs";
 import { getCachedTranslation, setCachedTranslation } from "../src/translationstore.mjs";
-import { generateHololiveTtsDeck, generateWeissTtsDeck, serveAsset } from "../src/tts/weiss-tts.mjs";
+import { generateHololiveTtsDeck, generateRiftboundTtsDeck, generateUnionArenaTtsDeck, generateWeissTtsDeck, serveAsset } from "../src/tts/weiss-tts.mjs";
 
 const PORT = Number(portArg() || process.env.PORT || 17777);
 let currentPort = PORT;
@@ -26,9 +26,11 @@ let encoreSeriesListCache = null;
 const encoreSeriesCardsCache = new Map();
 
 const publicRoot = resolve("app/public");
+const sharedRoot = resolve("src/shared");
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
+  [".mjs", "text/javascript; charset=utf-8"],
   [".css", "text/css; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
   [".png", "image/png"],
@@ -44,10 +46,11 @@ const server = createServer(async (request, response) => {
       const db = loadWeissDatabase();
       sendJson(response, 200, {
         ok: true,
-        games: ["Weiss Schwarz (EN)", "Weiss Schwarz (JP)", "Hololive OCG", "Riftbound", "Union Arena (EN)", "Union Arena (JP)"],
+        games: ["Weiss Schwarz (EN)", "Weiss Schwarz (JP)", "Hololive OCG (EN)", "Hololive OCG (JP)", "Riftbound", "Union Arena (EN)", "Union Arena (JP)"],
         weissCards: db.cards.length,
         weissJpCards: loadWeissDatabase("jp").cards.length,
         hololiveCards: countJsonCards("data/cards/hololive-cards.json"),
+        hololiveJpCards: countJsonCards("data/cards/hololive-jp-cards.json"),
         riftboundCards: loadRiftboundDatabase().length,
         unionArenaCards: loadUnionArenaDatabase("en").length,
         unionArenaJpCards: loadUnionArenaDatabase("jp").length,
@@ -83,7 +86,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/collection/hololive/sets") {
-      sendJson(response, 200, { ok: true, sets: listHololiveCardSets() });
+      sendJson(response, 200, { ok: true, sets: listHololiveCardSets(hololiveLocaleFromUrl(url)) });
       return;
     }
 
@@ -127,6 +130,17 @@ const server = createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/decks") {
       const body = await readJsonBody(request);
       sendJson(response, 200, { ok: true, deck: upsertDeck(body) });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/import/mass") {
+      const body = await readJsonBody(request);
+      const result = await massImportDecks(body.input || body.urls || "", {
+        save: body.save !== false,
+        defaultStatus: body.defaultStatus || "Testing",
+        defaultTags: body.defaultTags || "",
+      });
+      sendJson(response, 200, { ok: result.failed.length === 0, ...result });
       return;
     }
 
@@ -261,7 +275,7 @@ const server = createServer(async (request, response) => {
         result = { ok: false, error: "Could not detect Decklog game." };
       }
 
-      sendJson(response, 200, { ...result, detectedGame });
+      sendJson(response, 200, { ...result, detectedGame: canonicalGame(detectedGame) });
       return;
     }
 
@@ -278,7 +292,8 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/hololive/build-db") {
-      const job = startHololiveCardDatabaseBuild();
+      const body = await readJsonBody(request);
+      const job = startHololiveCardDatabaseBuild(hololiveLocaleFromValue(body.locale || body.game));
       sendJson(response, 202, { ok: true, job });
       return;
     }
@@ -333,13 +348,17 @@ const server = createServer(async (request, response) => {
         sendJson(response, 404, { ok: false, error: "Deck not found." });
         return;
       }
-      if (!isWeissGame(deck.game) && deck.game !== "Hololive OCG") {
-        sendJson(response, 400, { ok: false, error: "TTS export currently supports Weiss Schwarz and Hololive OCG decks." });
+      if (!isWeissGame(deck.game) && !isHololiveGame(deck.game) && deck.game !== "Riftbound" && !isUnionArenaGame(deck.game)) {
+        sendJson(response, 400, { ok: false, error: "TTS export currently supports Weiss Schwarz, Hololive OCG, Riftbound, and Union Arena decks." });
         return;
       }
-      const result = deck.game === "Hololive OCG"
+      const result = isHololiveGame(deck.game)
         ? await generateHololiveTtsDeck(deck, currentPort, loadSettings())
-        : await generateWeissTtsDeck(deck, currentPort, loadSettings());
+        : deck.game === "Riftbound"
+          ? await generateRiftboundTtsDeck(deck, currentPort, loadSettings())
+          : isUnionArenaGame(deck.game)
+            ? await generateUnionArenaTtsDeck(deck, currentPort, loadSettings())
+            : await generateWeissTtsDeck(deck, currentPort, loadSettings());
       sendJson(response, 200, { ok: true, ...result });
       return;
     }
@@ -351,7 +370,8 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET") {
       const relativePath = url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-      servePublic(response, relativePath);
+      if (relativePath.startsWith("shared/")) serveStaticFromRoot(response, sharedRoot, relativePath.slice("shared/".length));
+      else serveStaticFromRoot(response, publicRoot, relativePath);
       return;
     }
 
@@ -364,9 +384,9 @@ const server = createServer(async (request, response) => {
 
 listenWithFallback(PORT);
 
-function servePublic(response, relativePath) {
-  const filePath = resolve(publicRoot, relativePath);
-  if (filePath !== publicRoot && !filePath.startsWith(publicRoot + sep)) {
+function serveStaticFromRoot(response, root, relativePath) {
+  const filePath = resolve(root, relativePath);
+  if (filePath !== root && !filePath.startsWith(root + sep)) {
     sendText(response, 403, "Forbidden", "text/plain; charset=utf-8");
     return;
   }
@@ -578,6 +598,245 @@ function renderUnionArenaCardImage(card) {
   };
 }
 
+async function massImportDecks(input, options = {}) {
+  const entries = parseMassImportInput(input);
+  const imported = [];
+  const failed = [];
+  const savedDecks = [];
+
+  for (const entry of entries) {
+    try {
+      const result = await importDeckEntry(entry, options);
+      if (options.save) {
+        const saved = upsertDeck(result.deck);
+        result.saved = true;
+        result.deck = saved;
+        savedDecks.push(saved);
+      }
+      imported.push(result);
+    } catch (error) {
+      failed.push({
+        source: entry.source,
+        commands: entry.commands,
+        error: error.message || String(error),
+      });
+    }
+  }
+
+  return {
+    requested: entries.length,
+    imported,
+    failed,
+    savedDecks,
+  };
+}
+
+async function importDeckEntry(entry, options = {}) {
+  const source = normalizeSourceForOverride(entry.source, entry.override);
+  const status = String(options.defaultStatus || "Testing");
+  const tags = String(options.defaultTags || "");
+
+  if (entry.override.game === "Riftbound" || isPiltoverSource(source)) {
+    const result = await importPiltoverDeck(source);
+    if (!result.resolvedCards?.length) throw new Error(result.error || "Piltover import failed.");
+    return importResultToDeck(result, {
+      source,
+      game: "Riftbound",
+      status,
+      tags,
+      missing: result.missing,
+    });
+  }
+
+  if (entry.override.game?.startsWith("Union Arena") || isExburstUnionArenaSource(source)) {
+    const result = await importExburstUnionArenaDeck(source);
+    if (!result.ok && !result.resolvedCards?.length) throw new Error(result.error || "ExBurst Union Arena import failed.");
+    return importResultToDeck(result, {
+      source,
+      game: result.game || entry.override.game || "Union Arena (EN)",
+      status,
+      tags,
+      missing: result.missing,
+    });
+  }
+
+  if (isHololiveGame(entry.override.game)) {
+    const result = await importHololiveDecklogDeck(source);
+    if (!result.ok) throw new Error(result.error || "Hololive Decklog import failed.");
+    return importResultToDeck(result, {
+      source,
+      game: entry.override.game || "Hololive OCG (EN)",
+      status,
+      tags,
+    });
+  }
+
+  if (isEncoreSource(source)) {
+    const result = await importEncoreDeck(source);
+    if (!result.ok) throw new Error(result.error || "Encore import failed.");
+    return resolveWeissImportToDeck(result, {
+      source,
+      locale: entry.override.locale || "en",
+      status,
+      tags,
+    });
+  }
+
+  const decklog = await fetchDecklogPayload(source);
+  const detectedGame = detectDecklogGame(decklog.payload);
+  if (entry.override.game === "Weiss Schwarz (EN)" || entry.override.game === "Weiss Schwarz (JP)" || detectedGame === "Weiss Schwarz") {
+    const result = await importDecklogDeck(source);
+    if (!result.ok) throw new Error(result.error || "Decklog Weiss import failed.");
+    return resolveWeissImportToDeck(result, {
+      source,
+      locale: entry.override.locale || (entry.override.game === "Weiss Schwarz (JP)" ? "jp" : "en"),
+      status,
+      tags,
+    });
+  }
+
+  if (detectedGame === "Hololive OCG") {
+    const result = importHololiveDecklogPayload(decklog.deckId, decklog.payload);
+    if (!result.ok) throw new Error(result.error || "Hololive Decklog import failed.");
+    return importResultToDeck(result, {
+      source,
+      game: entry.override.locale === "jp" ? "Hololive OCG (JP)" : "Hololive OCG (EN)",
+      status,
+      tags,
+    });
+  }
+
+  throw new Error("Could not auto-detect this deck source. Add a suffix like -WSen, -hocg, -UAjp, or -riftbound.");
+}
+
+function resolveWeissImportToDeck(result, options) {
+  const locale = options.locale === "jp" ? "jp" : "en";
+  const resolved = resolveWeissDeck(result.deckText || "", { locale });
+  if (!resolved.cards?.length) {
+    throw new Error(`Weiss deck resolved 0 cards${resolved.missing?.length ? `; ${resolved.missing.length} missing` : ""}.`);
+  }
+  return importResultToDeck({
+    ...result,
+    resolvedCards: resolved.cards,
+    totalCards: resolved.totalCards,
+    uniqueCards: resolved.uniqueCards,
+    missing: resolved.missing || [],
+    ambiguous: resolved.ambiguous || [],
+  }, {
+    ...options,
+    game: locale === "jp" ? "Weiss Schwarz (JP)" : "Weiss Schwarz (EN)",
+    weissLocale: locale,
+  });
+}
+
+function importResultToDeck(result, options) {
+  const cards = (result.resolvedCards || []).map((card) => ({
+    ...card,
+    game: canonicalGame(isHololiveGame(options.game) ? options.game : card.game || options.game),
+  }));
+  const deck = {
+    name: result.deckName || `Imported ${options.game} Deck`,
+    game: canonicalGame(options.game),
+    status: options.status || "Testing",
+    tags: options.tags || "",
+    sourceUrl: result.sourceUrl || options.source || "",
+    weissLocale: options.weissLocale || (canonicalGame(options.game) === "Weiss Schwarz (JP)" ? "jp" : "en"),
+    cards,
+  };
+
+  return {
+    ok: true,
+    source: result.sourceUrl || options.source || "",
+    deckName: deck.name,
+    game: deck.game,
+    cards: result.totalCards || result.cards || cards.reduce((sum, card) => sum + Number(card.qty || 0), 0),
+    uniqueCards: result.uniqueCards || cards.length,
+    missingCount: (options.missing || result.missing || []).length,
+    missing: options.missing || result.missing || [],
+    deck,
+    saved: false,
+  };
+}
+
+function parseMassImportInput(input) {
+  const rawEntries = Array.isArray(input)
+    ? input.map((item) => typeof item === "string" ? item : item?.url || item?.source || "")
+    : String(input || "").split(/\r?\n/);
+  return rawEntries
+    .map(parseMassImportLine)
+    .filter((entry) => entry.source);
+}
+
+function parseMassImportLine(line) {
+  let source = String(line || "").trim();
+  const commands = [];
+  const commandPattern = /(?:\s+|)(-(?:jp|en|hocg|wsen|wsjp|uaen|uajp|riftbound))\s*$/i;
+
+  while (true) {
+    const match = source.match(commandPattern);
+    if (!match) break;
+    commands.unshift(match[1].toLowerCase());
+    source = source.slice(0, match.index).trim();
+  }
+
+  return {
+    source,
+    commands,
+    override: importOverride(commands),
+  };
+}
+
+function importOverride(commands) {
+  const override = { game: "", locale: "" };
+  for (const command of commands) {
+    const key = command.toLowerCase();
+    if (key === "-jp") override.locale = "jp";
+    else if (key === "-en") override.locale = "en";
+    else if (key === "-hocg") override.game = "Hololive OCG (EN)";
+    else if (key === "-wsen") {
+      override.game = "Weiss Schwarz (EN)";
+      override.locale = "en";
+    } else if (key === "-wsjp") {
+      override.game = "Weiss Schwarz (JP)";
+      override.locale = "jp";
+    } else if (key === "-uaen") {
+      override.game = "Union Arena (EN)";
+      override.locale = "en";
+    } else if (key === "-uajp") {
+      override.game = "Union Arena (JP)";
+      override.locale = "jp";
+    } else if (key === "-riftbound") {
+      override.game = "Riftbound";
+    }
+  }
+  if (override.game === "Hololive OCG (EN)" && override.locale === "jp") override.game = "Hololive OCG (JP)";
+  return override;
+}
+
+function normalizeSourceForOverride(source, override) {
+  let value = String(source || "").trim();
+  if (override.game === "Union Arena (EN)" || override.locale === "en" && isExburstUnionArenaSource(value)) {
+    value = value.replace(/exburst\.dev\/ua\/(deck|deckbuilder)\//i, "exburst.dev/ua/en/$1/");
+  } else if (override.game === "Union Arena (JP)" || override.locale === "jp" && isExburstUnionArenaSource(value)) {
+    value = value.replace(/exburst\.dev\/ua\/en\/(deck|deckbuilder)\//i, "exburst.dev/ua/$1/");
+  }
+  return value;
+}
+
+function isPiltoverSource(value) {
+  return /piltoverarchive\.com\/decks\/view\/[0-9a-f-]{36}/i.test(String(value || ""))
+    || /^[0-9a-f-]{36}$/i.test(String(value || "").trim());
+}
+
+function isExburstUnionArenaSource(value) {
+  return /exburst\.dev\/ua\/(?:en\/)?deck\/\d+/i.test(String(value || ""))
+    || /exburst\.dev\/ua\/(?:en\/)?deckbuilder\/\d+/i.test(String(value || ""));
+}
+
+function isEncoreSource(value) {
+  return /encoredecks\.com/i.test(String(value || ""));
+}
+
 function renderUnionArenaCardImages(cards) {
   const requested = Array.isArray(cards) ? cards : [];
   const outputDir = resolve("outputs", "ua-rendered");
@@ -774,7 +1033,7 @@ function matchesWeissFilters(card, filters) {
 
 function collectionCards(url, fallbackGame = "") {
   const game = canonicalGame(url.searchParams.get("game") || fallbackGame || "Weiss Schwarz (EN)");
-  if (game === "Hololive OCG") return collectionHololiveCards(url);
+  if (isHololiveGame(game)) return collectionHololiveCards(url, hololiveLocaleFromValue(game));
   if (game === "Riftbound") return collectionRiftboundCards(url);
   if (game === "Union Arena (EN)") return collectionUnionArenaCards(url, "en");
   if (game === "Union Arena (JP)") return collectionUnionArenaCards(url, "jp");
@@ -808,7 +1067,7 @@ function collectionWeissCards(url, locale = "en") {
   return pageCards(cards, url);
 }
 
-function collectionHololiveCards(url) {
+function collectionHololiveCards(url, locale = "en") {
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
   const cardSet = String(url.searchParams.get("cardSet") || url.searchParams.get("title") || "").trim();
   const view = String(url.searchParams.get("view") || "all").trim().toLowerCase();
@@ -816,7 +1075,7 @@ function collectionHololiveCards(url) {
   const owned = loadCollection().cards;
   const filters = collectionFilters(url);
 
-  const cards = loadHololiveDatabase()
+  const cards = loadHololiveCards(locale)
     .filter((card) => !cardSet || hololiveCardSets(card).includes(cardSet))
     .filter((card) => matchesHololiveFilters(card, filters))
     .map((card) => ({ ...card, ownedQty: Number(owned[card.number] || 0), series: hololiveCardSets(card)[0] || card.cardSet || "" }))
@@ -836,6 +1095,10 @@ function collectionHololiveCards(url) {
         ...(card.oshiSkills || []).flatMap((skill) => [skill.label, skill.name, skill.text]),
         card.extraText,
         card.tags,
+        card.jpName,
+        card.jpText,
+        card.translatedName,
+        card.translatedText,
       ].join(" ").toLowerCase().includes(q);
     });
   sortCollectionCards(cards, sort);
@@ -848,12 +1111,24 @@ function canonicalGame(value) {
   if (game === "Weiss Schwarz JP" || game === "Weiss Schwarz (JP)") return "Weiss Schwarz (JP)";
   if (game === "Union Arena" || game === "Union Arena (EN)") return "Union Arena (EN)";
   if (game === "Union Arena JP" || game === "Union Arena (JP)") return "Union Arena (JP)";
+  if (game === "Hololive JP" || game === "Hololive OCG JP" || game === "Hololive OCG (JP)") return "Hololive OCG (JP)";
+  if (game === "Hololive" || game === "Hololive OCG" || game === "Hololive OCG EN" || game === "Hololive OCG (EN)") return "Hololive OCG (EN)";
   return game || "Weiss Schwarz (EN)";
 }
 
 function isWeissGame(value) {
   const game = canonicalGame(value);
   return game === "Weiss Schwarz (EN)" || game === "Weiss Schwarz (JP)";
+}
+
+function isUnionArenaGame(value) {
+  const game = canonicalGame(value);
+  return game === "Union Arena (EN)" || game === "Union Arena (JP)";
+}
+
+function isHololiveGame(value) {
+  const game = canonicalGame(value);
+  return game === "Hololive OCG (EN)" || game === "Hololive OCG (JP)";
 }
 
 function collectionRiftboundCards(url) {
@@ -994,18 +1269,14 @@ function matchesUnionArenaFilters(card, filters) {
   return true;
 }
 
-function loadHololiveDatabase() {
-  try {
-    const cards = JSON.parse(readFileSync("data/cards/hololive-cards.json", "utf8"));
-    return Array.isArray(cards) ? cards : [];
-  } catch {
-    return [];
-  }
+function loadHololiveCards(locale = "en") {
+  const db = loadHololiveGameDatabase(locale);
+  return Array.isArray(db.cards) ? db.cards : [];
 }
 
-function listHololiveCardSets() {
+function listHololiveCardSets(locale = "en") {
   const counts = new Map();
-  for (const card of loadHololiveDatabase()) {
+  for (const card of loadHololiveCards(locale)) {
     for (const set of hololiveCardSets(card)) counts.set(set, (counts.get(set) || 0) + 1);
   }
   return [...counts.entries()]
@@ -1245,23 +1516,26 @@ function appendBuildLog(text) {
   weissBuildJob.log = lines.slice(-40).join("\n");
 }
 
-function startHololiveCardDatabaseBuild() {
+function startHololiveCardDatabaseBuild(locale = "en") {
   if (hololiveBuildJob?.status === "running") return hololiveBuildJob;
+  const isJp = hololiveLocaleFromValue(locale) === "jp";
+  const outputPath = isJp ? "data/cards/hololive-jp-cards.json" : "data/cards/hololive-cards.json";
 
   hololiveBuildJob = {
     id: new Date().toISOString(),
     status: "running",
+    locale: isJp ? "jp" : "en",
     startedAt: new Date().toISOString(),
     finishedAt: "",
     hololiveCards: 0,
-    log: "Starting Hololive card database build...",
+    log: `Starting Hololive ${isJp ? "JP" : "EN"} card database build...`,
     error: "",
   };
 
-  const child = spawn(process.execPath, [
+  const args = [
     "scripts/scrape-hololive-cards.mjs",
     "--output",
-    "data/cards/hololive-cards.json",
+    outputPath,
     "--fresh",
     "--delayMs",
     "50",
@@ -1269,7 +1543,10 @@ function startHololiveCardDatabaseBuild() {
     "25",
     "--concurrency",
     "8",
-  ], {
+  ];
+  if (isJp) args.push("--locale", "jp");
+
+  const child = spawn(process.execPath, args, {
     cwd: resolve("."),
     windowsHide: true,
   });
@@ -1292,7 +1569,8 @@ function startHololiveCardDatabaseBuild() {
     }
 
     hololiveBuildJob.status = "complete";
-    hololiveBuildJob.hololiveCards = countJsonCards("data/cards/hololive-cards.json");
+    clearHololiveDatabaseCache(isJp ? "jp" : "en");
+    hololiveBuildJob.hololiveCards = countJsonCards(outputPath);
     appendHololiveBuildLog(`Build complete: ${hololiveBuildJob.hololiveCards} cards.`);
   });
 
@@ -1454,6 +1732,14 @@ function countUnionArenaCards(locale = "en") {
 
 function unionArenaLocaleFromUrl(url) {
   return canonicalGame(url.searchParams.get("game") || "") === "Union Arena (JP)" || String(url.searchParams.get("locale") || "").toLowerCase() === "jp" ? "jp" : "en";
+}
+
+function hololiveLocaleFromUrl(url) {
+  return hololiveLocaleFromValue(url.searchParams.get("locale") || url.searchParams.get("game") || "");
+}
+
+function hololiveLocaleFromValue(value) {
+  return canonicalGame(value) === "Hololive OCG (JP)" || String(value || "").toLowerCase() === "jp" ? "jp" : "en";
 }
 
 function normalizeUnionArenaLocale(value) {

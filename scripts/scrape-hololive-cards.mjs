@@ -5,14 +5,29 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const DEFAULT_URL =
   "https://en.hololive-official-cardgame.com/cardlist/cardsearch/?keyword=&attribute%5B0%5D=all&expansion_name=&card_kind%5B0%5D=all&rare%5B0%5D=all&bloom_level%5B0%5D=all&parallel%5B0%5D=all&view=text&sort=new";
+const DEFAULT_JP_URL =
+  "https://hololive-official-cardgame.com/cardlist/cardsearch/?keyword=&attribute%5B%5D=all&expansion_name=&card_kind%5B%5D=all&rare%5B%5D=all&bloom_level%5B%5D=all&parallel%5B%5D=all&view=text&sort=new";
+const DEFAULT_TRANSLATION_SHEET_ID = "1IdaueY-Jw8JXjYLOhA9hUd2w0VRBao9Z1URJwmCWJ64";
+const DEFAULT_TRANSLATION_GIDS = ["543634835"];
 
 const args = parseArgs(process.argv.slice(2));
-const startUrl = args.url || DEFAULT_URL;
-const outputPath = args.output || "data/cards/hololive-cards.json";
+const locale = String(args.locale || "en").toLowerCase() === "jp" ? "jp" : "en";
+const isJp = locale === "jp";
+const startUrl = args.url || (isJp ? DEFAULT_JP_URL : DEFAULT_URL);
+const outputPath = args.output || (isJp ? "data/cards/hololive-jp-cards.json" : "data/cards/hololive-cards.json");
 const delayMs = Number(args.delayMs || 250);
 const maxPages = Number(args.maxPages || Infinity);
 const flushEvery = Number(args.flushEvery || 5);
 const concurrency = Number(args.concurrency || 6);
+const translationSheetId = args.translationSheetId || DEFAULT_TRANSLATION_SHEET_ID;
+const translationGids = String(args.translationGids || "")
+  .split(",")
+  .map((gid) => gid.trim())
+  .filter(Boolean);
+const translationSheets = String(args.translationSheets || "")
+  .split("|")
+  .map((sheet) => sheet.trim())
+  .filter(Boolean);
 
 const allCards = [];
 const seenCards = new Set();
@@ -59,6 +74,14 @@ if (dynamicPagination) {
   console.warn("Could not find Hololive dynamic pagination metadata. Only page 1 was scraped.");
 }
 
+if (isJp) {
+  console.log("Fetching Hololive JP translation sheet data...");
+  const translations = await fetchHololiveTranslations(translationSheetId, { gids: translationGids, sheets: translationSheets });
+  const englishCards = loadEnglishHololiveCards();
+  const translated = applyTranslations(allCards, translations, englishCards);
+  console.log(`Applied ${translated} English translation row(s) to Hololive JP cards.`);
+}
+
 writeJson(outputPath, allCards);
 if (!Number.isFinite(maxPages) && expectedTotal && allCards.length !== expectedTotal) {
   console.warn(`Warning: site reported ${expectedTotal} cards, but ${allCards.length} cards were written.`);
@@ -86,25 +109,26 @@ function parseCards(html, pageUrl) {
     const extra = extraBlock(block);
     const imageUrl = imageSrc(block, pageUrl);
     const imagePath = imageUrl ? new URL(imageUrl).pathname.replace(/^\/wp-content\/images\/cardlist\//, "") : "";
-    const tags = firstDetail(details, "Tag");
+    const tags = firstDetail(details, "Tag", "タグ");
 
     cards.push({
-      game: "Hololive OCG",
+      game: isJp ? "Hololive OCG (JP)" : "Hololive OCG (EN)",
+      locale,
       officialId,
       number,
       name,
       detailUrl,
       imageUrl,
       imagePath,
-      cardType: firstDetail(details, "Card Type"),
-      rarity: firstDetail(details, "Rarity"),
-      cardSet: firstDetail(details, "Card Set"),
-      color: normalizeEnergyText(firstDetail(details, "Color", "Attribute")),
+      cardType: firstDetail(details, "Card Type", "カードタイプ", "カード種別"),
+      rarity: firstDetail(details, "Rarity", "レアリティ"),
+      cardSet: firstDetail(details, "Card Set", "収録商品", "商品", "カードセット"),
+      color: normalizeEnergyText(firstDetail(details, "Color", "Attribute", "色", "属性")),
       life: firstDetail(details, "LIFE", "Life"),
-      bloomLevel: firstDetail(details, "Bloom Level"),
+      bloomLevel: firstDetail(details, "Bloom Level", "ブルームレベル"),
       hp: firstDetail(details, "HP"),
-      batonPass: normalizeEnergyText(firstDetail(details, "Baton Pass")),
-      abilityText: firstDetail(details, "Ability Text"),
+      batonPass: normalizeEnergyText(firstDetail(details, "Baton Pass", "バトンタッチ")),
+      abilityText: firstDetail(details, "Ability Text", "能力テキスト", "テキスト"),
       keywords,
       arts,
       oshiSkills,
@@ -113,7 +137,7 @@ function parseCards(html, pageUrl) {
       isExtra: Boolean(extra.text),
       tags,
       tagsList: tags.match(/#[^\s#]+/g) || [],
-      illustrator: firstDetail(details, "Illustrator"),
+      illustrator: firstDetail(details, "Illustrator", "イラストレーター"),
       details,
     });
   }
@@ -198,7 +222,7 @@ function writeJson(path, cardList) {
 
 function expectedCount(html) {
   return Number(
-    cleanText(html.match(/Search results:\s*<span[^>]*>\s*([\d,]+)\s*<\/span>\s*items/i)?.[1] || "").replace(/,/g, "")
+    cleanText(html.match(/(?:Search results:|検索結果：?)\s*<span[^>]*>\s*([\d,]+)\s*<\/span>\s*(?:items|件)/i)?.[1] || "").replace(/,/g, "")
   );
 }
 
@@ -362,6 +386,384 @@ function decodeHtml(text) {
     .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'")
     .replace(/&nbsp;/g, " ");
+}
+
+async function fetchHololiveTranslations(sheetId, options = {}) {
+  const byNumber = new Map();
+  const discovered = await discoverTranslationSheets(sheetId);
+  const fallbackGids = discovered.length || (options.sheets || []).length ? [] : DEFAULT_TRANSLATION_GIDS;
+  const sources = [
+    ...discovered.map((sheet) => ({ type: "sheet", value: sheet })),
+    ...(options.sheets || []).map((sheet) => ({ type: "sheet", value: sheet })),
+    ...[...(options.gids || []), ...fallbackGids].map((gid) => ({ type: "gid", value: gid })),
+  ].filter((source) => source.value);
+  const uniqueSources = [...new Map(sources.map((source) => [`${source.type}:${source.value}`, source])).values()];
+
+  for (const source of uniqueSources) {
+    try {
+      const queryKey = source.type === "sheet" ? "sheet" : "gid";
+      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&${queryKey}=${encodeURIComponent(source.value)}`;
+      const csv = await fetchTextWithRetry(url, 2);
+      const rows = parseCsv(csv);
+      for (const row of rowsToObjects(rows)) {
+        const translation = translationFromRow(row, source.value);
+        if (!translation.number) continue;
+        byNumber.set(normalizeCardNumber(translation.number), {
+          ...(byNumber.get(normalizeCardNumber(translation.number)) || {}),
+          ...translation,
+        });
+      }
+      console.log(`Parsed ${rows.length} translation rows from translation ${source.type} ${source.value}.`);
+    } catch (error) {
+      console.warn(`Could not read translation ${source.type} ${source.value}: ${error.message || error}`);
+    }
+  }
+
+  return byNumber;
+}
+
+async function discoverTranslationSheets(sheetId) {
+  try {
+    const html = await fetchTextWithRetry(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, 2);
+    return [...html.matchAll(/docs-sheet-tab-caption">([\s\S]*?)<\/div>/g)]
+      .map((match) => decodeHtml(cleanText(match[1])))
+      .filter(isTranslationCardSheet);
+  } catch {
+    return [];
+  }
+}
+
+function isTranslationCardSheet(name) {
+  const text = String(name || "").trim();
+  return /booster|start deck|starter cheer|pr\/birthday|promo|pr pack/i.test(text);
+}
+
+function translationFromRow(row, gid) {
+  const number = pickRow(row, [
+    "setcode", "set code", "card no", "card no.", "card number", "cardnumber", "number", "id", "カード番号", "card id",
+  ]);
+  const rawName = pickRow(row, [
+    "english name", "en name", "translated name", "translation name", "name en", "name", "card name", "カード名(英語)",
+  ]);
+  const text = pickRow(row, [
+    "english text", "en text", "translated text", "translation", "effect", "ability", "text", "card text", "能力", "効果",
+  ]);
+  const tags = pickRow(row, [
+    "tags", "tag", "en tags", "translated tags", "buzz", "hash tags", "ハッシュタグ",
+  ]);
+  const type = pickRow(row, ["card type", "type", "kind"]);
+  const extra = pickRow(row, ["extra", "extra text"]);
+  const notes = pickRow(row, ["notes", "note", "memo"]);
+
+  return {
+    number,
+    name: englishNameFromSheetValue(rawName),
+    text,
+    tags,
+    cardType: type,
+    extraText: extra,
+    translationNotes: notes,
+    translationSource: `google-sheet:${gid}`,
+    sourceSheet: gid,
+  };
+}
+
+function englishNameFromSheetValue(value) {
+  const text = String(value || "").trim();
+  const parenthetical = text.match(/\(([^()]+)\)\s*$/);
+  if (parenthetical) return parenthetical[1].trim();
+  return text;
+}
+
+function applyTranslations(cards, translations, englishCards = buildEnglishCardLookup([])) {
+  let applied = 0;
+  for (const card of cards) {
+    const translation = translations.get(normalizeCardNumber(card.number));
+    const englishCard = englishCards.byNumberRarity.get(`${normalizeCardNumber(card.number)}|${String(card.rarity || "").toUpperCase()}`)
+      || englishCards.byNumber.get(normalizeCardNumber(card.number));
+    card.jpName = card.name;
+    card.jpAbilityText = card.abilityText || "";
+    card.jpText = collectHololiveText(card);
+    card.jpDetails = card.details || {};
+    card.jpKeywords = card.keywords || [];
+    card.jpArts = card.arts || [];
+    card.jpOshiSkills = card.oshiSkills || [];
+    card.jpExtra = card.extra || { label: "", text: "" };
+
+    if (!translation) continue;
+    applied += 1;
+    card.translationSource = translation.translationSource;
+    card.translationNotes = translation.translationNotes || "";
+    card.translatedName = translation.name || "";
+    card.translatedText = translation.text || "";
+    card.translatedTags = translation.tags || "";
+
+    if (englishCard) applyEnglishHololiveShape(card, englishCard);
+    if (translation.name && !englishCard?.name) card.name = translation.name;
+    if (translation.cardType) applyTranslatedType(card, translation.cardType);
+    if (translation.sourceSheet && !englishCard?.cardSet) {
+      card.cardSet = cardSetFromTranslationSheet(translation.sourceSheet) || card.cardSet;
+    }
+    if (translation.tags) {
+      card.tags = translation.tags;
+      card.tagsList = translation.tags.match(/#[^\s#]+/g) || translation.tags.split(/\s*[,/]\s*/).filter(Boolean);
+    }
+    if (translation.text && !englishCard) {
+      const parsed = parseTranslatedHololiveText(translation.text);
+      card.keywords = parsed.keywords;
+      card.arts = parsed.arts;
+      card.oshiSkills = parsed.oshiSkills;
+      if (!parsed.keywords.length && !parsed.arts.length && !parsed.oshiSkills.length) {
+        card.text = translation.text;
+        card.abilityText = translation.text;
+      } else {
+        card.text = "";
+        card.abilityText = "";
+      }
+      card.extra = translation.extraText ? { label: "Extra", text: translation.extraText } : { label: "", text: "" };
+      card.extraText = translation.extraText || "";
+      card.isExtra = Boolean(translation.extraText) || /you may include any number/i.test(translation.text);
+    } else if (translation.text) {
+      card.translatedText = translation.text;
+    }
+  }
+  return applied;
+}
+
+function applyEnglishHololiveShape(card, englishCard) {
+  for (const key of [
+    "name",
+    "cardType",
+    "cardSet",
+    "bloomLevel",
+    "hp",
+    "life",
+    "batonPass",
+    "abilityText",
+    "extraText",
+    "isExtra",
+    "tags",
+    "illustrator",
+  ]) {
+    if (englishCard[key] !== undefined && englishCard[key] !== "") card[key] = englishCard[key];
+  }
+  card.keywords = Array.isArray(englishCard.keywords) ? englishCard.keywords : [];
+  card.arts = Array.isArray(englishCard.arts) ? englishCard.arts : [];
+  card.oshiSkills = Array.isArray(englishCard.oshiSkills) ? englishCard.oshiSkills : [];
+  card.extra = englishCard.extra && typeof englishCard.extra === "object" ? englishCard.extra : { label: "", text: "" };
+  card.tagsList = Array.isArray(englishCard.tagsList) ? englishCard.tagsList : [];
+  if (englishCard.abilityText && !card.text) card.text = englishCard.abilityText;
+  card.enDetailUrl = englishCard.detailUrl || "";
+  card.enImageUrl = englishCard.imageUrl || "";
+}
+
+function applyTranslatedType(card, value) {
+  const text = String(value || "").trim();
+  const bloom = text.match(/\b(debut|1st|2nd|spot)\b/i)?.[1] || "";
+  if (bloom) card.bloomLevel = bloom;
+  if (/oshi/i.test(text)) card.cardType = "Oshi";
+  else if (/cheer/i.test(text)) card.cardType = "Cheer";
+  else if (/support/i.test(text)) card.cardType = "Support";
+  else if (/holomem/i.test(text)) card.cardType = "holomem";
+  else if (text) card.cardType = text;
+}
+
+function parseTranslatedHololiveText(text) {
+  const keywords = [];
+  const arts = [];
+  const oshiSkills = [];
+  const blocks = String(text || "").split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    if (/^arts\s*:/i.test(lines[0])) {
+      arts.push(parseTranslatedArtBlock(lines));
+    } else if (/^(oshi skill|sp oshi skill)\b/i.test(lines[0])) {
+      oshiSkills.push(parseTranslatedSkillBlock(lines));
+    } else if (/^[A-Za-z][\w -]*\s*:/i.test(lines[0])) {
+      keywords.push(parseTranslatedKeywordBlock(lines));
+    } else {
+      keywords.push({ type: "", name: "", text: lines.join("\n") });
+    }
+  }
+
+  return {
+    keywords: keywords.filter((item) => item.type || item.name || item.text),
+    arts: arts.filter((item) => item.name || item.text),
+    oshiSkills: oshiSkills.filter((item) => item.label || item.name || item.text),
+  };
+}
+
+function parseTranslatedKeywordBlock(lines) {
+  const [, type = "", name = ""] = lines[0].match(/^([^:]+):\s*(.*)$/) || [];
+  return { type: type.trim(), name: name.trim(), text: lines.slice(1).join("\n").trim() };
+}
+
+function parseTranslatedSkillBlock(lines) {
+  const [, label = "", name = ""] = lines[0].match(/^([^:]+):\s*(.*)$/) || [];
+  return { label: label.trim(), name: name.trim(), text: lines.slice(1).join("\n").trim() };
+}
+
+function parseTranslatedArtBlock(lines) {
+  const [, name = ""] = lines[0].match(/^arts\s*:\s*(.*)$/i) || [];
+  const costLine = lines.find((line) => /^cost\s*:/i.test(line)) || "";
+  const powerLine = lines.find((line) => /^power\s*:/i.test(line)) || "";
+  const text = lines
+    .filter((line) => !/^(arts|cost|power)\s*:/i.test(line))
+    .join("\n")
+    .trim();
+  const { damage, special } = parseTranslatedPower(powerLine);
+  return {
+    cost: parseTranslatedCost(costLine),
+    name: name.trim(),
+    damage,
+    special,
+    text,
+  };
+}
+
+function parseTranslatedCost(line) {
+  const text = String(line || "").replace(/^cost\s*:\s*/i, "");
+  const tokens = [];
+  for (const part of text.split(/\s*,\s*/)) {
+    const count = Number(part.match(/\d+/)?.[0] || 1);
+    const token = energyTokenFromText(part);
+    for (let index = 0; index < count; index += 1) tokens.push(token);
+  }
+  return tokens.filter(Boolean);
+}
+
+function parseTranslatedPower(line) {
+  const text = String(line || "").replace(/^power\s*:\s*/i, "");
+  const damage = text.match(/\d+/)?.[0] || "";
+  const specialMatch = text.match(/\+(\d+)\s+vs\s+([a-z]+)/i);
+  const special = specialMatch ? `${energyTokenFromText(specialMatch[2])}+${specialMatch[1]}` : "";
+  return { damage, special };
+}
+
+function energyTokenFromText(value) {
+  const text = String(value || "").toLowerCase();
+  if (/red/.test(text)) return "R";
+  if (/blue/.test(text)) return "B";
+  if (/green/.test(text)) return "G";
+  if (/yellow/.test(text)) return "Y";
+  if (/purple/.test(text)) return "P";
+  if (/white|any|colorless/.test(text)) return "W";
+  return normalizeEnergyText(value).trim();
+}
+
+function collectHololiveText(card) {
+  const lines = [];
+  if (card.abilityText) lines.push(card.abilityText);
+  for (const keyword of card.keywords || []) lines.push([keyword.type, keyword.name, keyword.text].filter(Boolean).join(" "));
+  for (const art of card.arts || []) lines.push([art.name, art.damage, art.special, art.text].filter(Boolean).join(" "));
+  for (const skill of card.oshiSkills || []) lines.push([skill.label, skill.name, skill.text].filter(Boolean).join(" "));
+  if (card.extraText) lines.push(card.extraText);
+  return lines.join("\n").trim();
+}
+
+function pickRow(row, names) {
+  for (const name of names) {
+    const normalized = normalizeHeader(name);
+    if (row[normalized]) return row[normalized];
+    const fuzzyKey = Object.keys(row).find((key) => key.startsWith(normalized));
+    if (fuzzyKey && row[fuzzyKey]) return row[fuzzyKey];
+  }
+  return "";
+}
+
+function rowsToObjects(rows) {
+  const headers = (rows[0] || []).map(normalizeHeader);
+  return rows.slice(1).map((cells) => {
+    const row = {};
+    headers.forEach((header, index) => {
+      if (!header) return;
+      row[header] = String(cells[index] || "").trim();
+    });
+    return row;
+  });
+}
+
+function parseCsv(csv) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const char = csv[index];
+    const next = csv[index + 1];
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+    } else if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (char !== "\r") {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  rows.push(row);
+  return rows.filter((item) => item.some((value) => String(value || "").trim()));
+}
+
+function normalizeHeader(value) {
+  return String(value || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function normalizeCardNumber(value) {
+  return String(value || "").trim().replace(/^EN[_-]/i, "").replace(/\s+/g, "").toLowerCase();
+}
+
+function loadEnglishHololiveCards() {
+  try {
+    if (!existsSync("data/cards/hololive-cards.json")) return buildEnglishCardLookup([]);
+    const cards = JSON.parse(readFileSync("data/cards/hololive-cards.json", "utf8"));
+    return buildEnglishCardLookup(Array.isArray(cards) ? cards : []);
+  } catch {
+    return buildEnglishCardLookup([]);
+  }
+}
+
+function buildEnglishCardLookup(cards) {
+  const byNumber = new Map();
+  const byNumberRarity = new Map();
+  for (const card of cards || []) {
+    const number = normalizeCardNumber(card.number);
+    if (!number) continue;
+    if (!byNumber.has(number)) byNumber.set(number, card);
+    byNumberRarity.set(`${number}|${String(card.rarity || "").toUpperCase()}`, card);
+  }
+  return { byNumber, byNumberRarity };
+}
+
+function cardSetFromTranslationSheet(sheetName) {
+  const text = String(sheetName || "").trim();
+  const booster = text.match(/^(?:Extra\s+)?Booster\s+([a-z]+\d+)\s+(.+)$/i);
+  if (booster) return `${/^extra/i.test(text) ? "Extra Booster" : "Booster Pack"} \u2013 ${booster[2].trim()}`;
+  const startDeck = text.match(/^Start Deck\s+([^:]+)(?::\s*(.+))?$/i);
+  if (startDeck) return `Start Deck \u2013 ${(startDeck[2] || startDeck[1]).trim()}`;
+  if (/starter cheer/i.test(text)) return "Starter Cheer Set";
+  if (/pr\/birthday/i.test(text)) return "PR/Birthday Cards";
+  if (/promo/i.test(text)) return text;
+  if (/pr pack/i.test(text)) return text;
+  return "";
 }
 
 function absolutize(url, baseUrl) {

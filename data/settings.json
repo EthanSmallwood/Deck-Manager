@@ -1,0 +1,1380 @@
+{
+  "ttsJsonExportDir": "C:\\Users\\ethan\\Documents\\My Games\\Tabletop Simulator\\Saves\\Saved Objects\\Deckmanager Export",
+  "cardGameRestrictions": {
+    "lastUpdated": "2026-07-12",
+    "lastUpdatedByGame": {
+      "hololive ocg (en)": "2026-07-12",
+      "hololive ocg (jp)": "2026-07-12",
+      "weiss schwarz (en)": "2026-07-12",
+      "weiss schwarz (jp)": "2026-06-27",
+      "union arena (en)": "2026-07-12",
+      "union arena (jp)": "2026-04-01",
+      "riftbound": "2026-07-12"
+    },
+    "entries": [
+      {
+        "game": "Hololive OCG (EN)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Hololive EN",
+        "name": "",
+        "numbers": [
+          "hBP01-030"
+        ]
+      },
+      {
+        "game": "Hololive OCG (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Hololive JP",
+        "name": "IRyS",
+        "numbers": [
+          "hBP01-030"
+        ]
+      },
+      {
+        "game": "Hololive OCG (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Hololive JP",
+        "name": "ASMR Microphone",
+        "numbers": [
+          "hBP07-101"
+        ]
+      },
+      {
+        "game": "Union Arena (EN)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Union Arena one-of cards",
+        "name": "Asuka Shikinami Langley",
+        "numbers": [
+          "EVA-1-051"
+        ]
+      },
+      {
+        "game": "Union Arena (EN)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Union Arena one-of cards",
+        "name": "Spear of Gaius",
+        "numbers": [
+          "EVA-1-063"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "BanG Dream! choose 1 of 3",
+        "name": "Words of Rejection, Sakiko Togawa",
+        "numbers": [
+          "BD/W125-E010",
+          "BD/W125-E010S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "BanG Dream! choose 1 of 3",
+        "name": "Arisa Ichigaya",
+        "numbers": [
+          "BD/W47-E082",
+          "BD/W47-E082SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "BanG Dream! choose 1 of 3",
+        "name": "Buns For Luck",
+        "numbers": [
+          "BD/W54-E065/a",
+          "BD/W125-E063",
+          "BD/W125-E063S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Rascal Does Not Dream",
+        "name": "The Year I Spent With You, Mai Sakurajima",
+        "numbers": [
+          "SBY/W114-E049",
+          "SBY/W114-E049OFR",
+          "SBY/W114-E049ABR"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Quintessential Quintuplets choose 1 of 5",
+        "name": "Daily Routine, Nino Nakano",
+        "numbers": [
+          "5HY/W90-E053",
+          "5HY/W90-E053S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Quintessential Quintuplets choose 1 of 5",
+        "name": "Important Charm",
+        "numbers": [
+          "5HY/W83-E100"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Quintessential Quintuplets choose 1 of 5",
+        "name": "Dozing Off, Ichika Nakano",
+        "numbers": [
+          "5HY/W90-E061",
+          "5HY/W90-E061S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Quintessential Quintuplets choose 1 of 5",
+        "name": "Love Taking Off, Nino Nakano",
+        "numbers": [
+          "5HY/W90-E052",
+          "5HY/W90-E052SSP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Quintessential Quintuplets choose 1 of 5",
+        "name": "Approach With Utmost Effort, Nino Nakano",
+        "numbers": [
+          "5HY/WE43-E23",
+          "5HY/WE43-E23IGP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Seven Deadly Sins choose 1 of 4",
+        "name": "Diane: Wielder of Gideon",
+        "numbers": [
+          "SDS/SX03-033",
+          "SDS/SX03-033S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Seven Deadly Sins choose 1 of 4",
+        "name": "Dreyfus: Usual Self",
+        "numbers": [
+          "SDS/SX05-097",
+          "SDS/SX05-097S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Seven Deadly Sins choose 1 of 4",
+        "name": "Gilthunder: Negative Little Gil",
+        "numbers": [
+          "SDS/SX03-038"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "The Seven Deadly Sins choose 1 of 4",
+        "name": "Escanor: Arrogant and Powerful",
+        "numbers": [
+          "SDS/SX05-004",
+          "SDS/SX05-004SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "The Seven Deadly Sins",
+        "name": "Elizabeth: Trust in the Promise",
+        "numbers": [
+          "SDS/SX05-001",
+          "SDS/SX05-001SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 3",
+        "name": "Conqueror of Flames Shizu",
+        "numbers": [
+          "TSK/S70-E065",
+          "TSK/S70-E065SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 3",
+        "name": "A Throbbing That Signals Freedom, Mjurran",
+        "numbers": [
+          "TSK/S101-E077",
+          "TSK/S101-E077SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 3",
+        "name": "Ardent Relationship, Youm & Mjurran",
+        "numbers": [
+          "TSK/S101-E080",
+          "TSK/S101-E080S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Nazarick: Tomb of the Undead",
+        "name": "A Return Gift from Shub-Niggurath, Ainz",
+        "numbers": [
+          "OVL/S99-E032",
+          "OVL/S99-E032S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Nazarick: Tomb of the Undead choose 1 of 5",
+        "name": "True Vampire Ancestor, Shalltear",
+        "numbers": [
+          "OVL/S62-E062"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Nazarick: Tomb of the Undead choose 1 of 5",
+        "name": "Deputy Leader of the Pleiades, Yuri",
+        "numbers": [
+          "OVL/S99-E039"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Nazarick: Tomb of the Undead choose 1 of 5",
+        "name": "Sorcerer King, Ainz",
+        "numbers": [
+          "OVL/S99-E028",
+          "OVL/S99-E028SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Nazarick: Tomb of the Undead choose 1 of 5",
+        "name": "Brimming with Confidence, Aura; Breath of Mental Manipulation, Aura",
+        "numbers": [
+          "OVL/S99-E104",
+          "OVL/S99-E104SR",
+          "OVL/S99-E106"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Nazarick: Tomb of the Undead choose 1 of 5",
+        "name": "Timid Floor Guardian, Mare",
+        "numbers": [
+          "OVL/S99-E027",
+          "OVL/S99-E027SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "hololive Production",
+        "name": "A Step Towards The Future, Gawr Gura",
+        "numbers": [
+          "HOL/W104-E113",
+          "HOL/W104-E113S",
+          "HOL/W104-E113SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "hololive Production choose 1 of 3",
+        "name": "Himemori Luna",
+        "numbers": [
+          "HOL/W91-E057",
+          "HOL/W91-E057S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "hololive Production choose 1 of 3",
+        "name": "Relaxing by the Pool, Ookami Mio",
+        "numbers": [
+          "HOL/W104-E040",
+          "HOL/W104-E040S",
+          "HOL/W104-E040SP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "hololive Production choose 1 of 3",
+        "name": "Encore Just for Two, Omaru Polka",
+        "numbers": [
+          "HOL/W104-E069",
+          "HOL/W104-E069S",
+          "HOL/W104-E069SSP"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "hololive Production",
+        "name": "Boss, Nakiri Ayame",
+        "numbers": [
+          "HOL/W104-E099",
+          "HOL/W104-E099S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Chainsaw Man",
+        "name": "Public Safety Devil Extermination Special Division 4, Aki Hayakawa",
+        "numbers": [
+          "CSM/S96-E029",
+          "CSM/S96-E029S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Chainsaw Man choose 1 of 2",
+        "name": "Forming an Alliance, Himeno",
+        "numbers": [
+          "CSM/S96-E085"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Chainsaw Man choose 1 of 2",
+        "name": "Break Time, Himeno",
+        "numbers": [
+          "CSM/S96-E086",
+          "CSM/S96-E086S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Avatar: The Last Airbender",
+        "name": "Sokka: Offering Different Perspectives",
+        "numbers": [
+          "ATLA/WX04-082",
+          "ATLA/WX04-082S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Sword Art Online",
+        "name": "Straight Path, Alice",
+        "numbers": [
+          "SAO/S100-E011",
+          "SAO/S100-E011S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Date A Live",
+        "name": "\"Terrible Spirit\" Kurumi",
+        "numbers": [
+          "DAL/W79-E053",
+          "DAL/W79-E053SEC"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "combination",
+        "limit": 4,
+        "group": "Fate Excalibur cards",
+        "name": "Excalibur Morgan",
+        "numbers": [
+          "FS/S64-E081",
+          "FS/S64-E081R"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "combination",
+        "limit": 4,
+        "group": "Fate Excalibur cards",
+        "name": "Excalibur",
+        "numbers": [
+          "FZ/S17-E030",
+          "FS/S77-E014",
+          "FS/S77-E014R"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Batman Ninja choose 1 of 2",
+        "name": "Batman: Infiltration",
+        "numbers": [
+          "BNJ/SX01-A11"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (EN)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Batman Ninja choose 1 of 2",
+        "name": "Gorilla Grodd: Decoy",
+        "numbers": [
+          "BNJ/SX01-087"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Quintessential Quintuplets",
+        "name": "Love Taking Off, Nino Nakano",
+        "numbers": [
+          "5HY/W90-052"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Quintessential Quintuplets choose 1 of 3",
+        "name": "Dozing Off, Ichika Nakano",
+        "numbers": [
+          "5HY/W90-061"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Quintessential Quintuplets choose 1 of 3",
+        "name": "Flowers of Gratitude, Nino Nakano",
+        "numbers": [
+          "5HY/Y101-081"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Quintessential Quintuplets choose 1 of 3",
+        "name": "Approach With Utmost Effort, Nino Nakano",
+        "numbers": [
+          "5HY/WE43-23"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Idolmaster Shiny Colors",
+        "name": "What Lies On My Outstretched Hand, Hiori Kazano",
+        "numbers": [
+          "ISC/S110-009"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Idolmaster Shiny Colors choose 1 of 4",
+        "name": "Twilight Swag, Meguru Hachimiya",
+        "numbers": [
+          "ISC/S110-004"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Idolmaster Shiny Colors choose 1 of 4",
+        "name": "Unseen Double Cast, Fuyuko Mayuzumi",
+        "numbers": [
+          "ISC/S110-038"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Idolmaster Shiny Colors choose 1 of 4",
+        "name": "interStellar-Stella, Mano Sakuragi",
+        "numbers": [
+          "ISC/S110-061"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Idolmaster Shiny Colors choose 1 of 4",
+        "name": "Beautiful Sunset, Sakuya Shirase",
+        "numbers": [
+          "ISC/S110-093"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Rascal Does Not Dream",
+        "name": "One Year Spent With You, Mai Sakurajima",
+        "numbers": [
+          "SBY/W114-049"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Assault Lily choose 1 of 3",
+        "name": "To Protect That Smile, Kanaho",
+        "numbers": [
+          "ALL/S90-008"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Hololive Production",
+        "name": "Boss, Nakiri Ayame",
+        "numbers": [
+          "HOL/W104-099"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Hololive Production",
+        "name": "A Step Towards the Future, Gawr Gura",
+        "numbers": [
+          "HOL/W104-113"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Hololive Production choose 1 of 4",
+        "name": "Himemori Luna",
+        "numbers": [
+          "HOL/W91-057"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Hololive Production choose 1 of 4",
+        "name": "Haachama Beam, Akai Haato",
+        "numbers": [
+          "HOL/W91-105"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Hololive Production choose 1 of 4",
+        "name": "Encore Just for Two, Omaru Polka",
+        "numbers": [
+          "HOL/W104-069"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Hololive Production choose 1 of 4",
+        "name": "Relaxing by the Pool, Ookami Mio",
+        "numbers": [
+          "HOL/W104-040"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Overlord",
+        "name": "A Return Gift from Shub-Niggurath, Ainz",
+        "numbers": [
+          "OVL/S99-032"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Overlord choose 1 of 4",
+        "name": "Sight of Mental Manipulation, Aura",
+        "numbers": [
+          "OVL/S62-106",
+          "OVL/SE54-310LR"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Overlord choose 1 of 4",
+        "name": "Full of Self-Confidence, Aura",
+        "numbers": [
+          "OVL/S99-104"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Overlord choose 1 of 4",
+        "name": "Skeleton Mage, Ainz",
+        "numbers": [
+          "OVL/SE54-57"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Overlord choose 1 of 4",
+        "name": "Merciful, Pure-White Devil, Albedo",
+        "numbers": [
+          "OVL/SE54-61"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "BanG Dream choose 1 of 3",
+        "name": "Arisa Ichigaya",
+        "numbers": [
+          "BD/W47-082"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "BanG Dream choose 1 of 3",
+        "name": "Buns For Luck",
+        "numbers": [
+          "BD/W54-065",
+          "BD/W125-063"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "BanG Dream choose 1 of 3",
+        "name": "Words of Rejection, Sakiko Togawa",
+        "numbers": [
+          "BD/W125-010"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "BanG Dream",
+        "name": "Michelle Seal",
+        "numbers": [
+          "BD/HS4-021"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Alice Gear Aegis choose 1 of 5",
+        "name": "Aika Aikawa",
+        "numbers": [
+          "AGS/W108-009"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Alice Gear Aegis choose 1 of 5",
+        "name": "Wild Wild Moodmaker, Rin",
+        "numbers": [
+          "AGS/W108-032"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Alice Gear Aegis choose 1 of 5",
+        "name": "What She Can Do, Yotsuyu",
+        "numbers": [
+          "AGS/W108-034"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Alice Gear Aegis choose 1 of 5",
+        "name": "Angel in Coveralls, Rita",
+        "numbers": [
+          "AGS/W108-005"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Alice Gear Aegis choose 1 of 5",
+        "name": "Nodoka Gone Berserk",
+        "numbers": [
+          "AGS/W108-038"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Chainsaw Man choose 1 of 2",
+        "name": "Forming an Alliance, Himeno",
+        "numbers": [
+          "CSM/S96-085"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Chainsaw Man choose 1 of 2",
+        "name": "Break Time, Himeno",
+        "numbers": [
+          "CSM/S96-086"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Chainsaw Man",
+        "name": "Public Safety Devil Extermination Special Division 4, Aki Hayakawa",
+        "numbers": [
+          "CSM/S96-029"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Crayon Shin-chan",
+        "name": "Movie With No End",
+        "numbers": [
+          "CS/S114-047"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Key All Stars choose 1 of 4",
+        "name": "Memories And Taiyaki, Ayu",
+        "numbers": [
+          "Kka/W102-003"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Key All Stars choose 1 of 4",
+        "name": "Whisker Cat Group, Kamome",
+        "numbers": [
+          "Ksm/W102-037"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Key All Stars choose 1 of 4",
+        "name": "The Day I Became A Treasure",
+        "numbers": [
+          "Kdb/W102-068"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Key All Stars choose 1 of 4",
+        "name": "Last Summer Vacation, Treasure",
+        "numbers": [
+          "Kai/W102-077"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 4",
+        "name": "Conqueror of Flames, Shizu",
+        "numbers": [
+          "TSK/S70-065"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 4",
+        "name": "Quiet Anger, Shuna",
+        "numbers": [
+          "TSK/S101-052"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 4",
+        "name": "A Throbbing That Signals Freedom, Mjurran",
+        "numbers": [
+          "TSK/S101-077"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "That Time I Got Reincarnated as a Slime choose 1 of 4",
+        "name": "To the Strong, Benimaru",
+        "numbers": [
+          "TSK/S101-054"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Love Live Hasunosora choose 1 of 4",
+        "name": "PASSION!!!!!! Megumi Fujishima",
+        "numbers": [
+          "LHS/W122-012"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Love Live Hasunosora choose 1 of 4",
+        "name": "Dream Believers, Ginko Momose",
+        "numbers": [
+          "LHS/W122-002"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Love Live Hasunosora choose 1 of 4",
+        "name": "Hakuchu A la mode, Rurino Osawa",
+        "numbers": [
+          "LHS/W122-050"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Love Live Hasunosora choose 1 of 4",
+        "name": "School Idol Project, Megumi Fujishima",
+        "numbers": [
+          "LHS/W122-009"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Re:Zero choose 1 of 3",
+        "name": "Vulnerable Yawn, Rem",
+        "numbers": [
+          "RZ/S116-078"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Re:Zero choose 1 of 3",
+        "name": "Checkered Skirt Guide, Rem",
+        "numbers": [
+          "RZ/S116-083"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Re:Zero choose 1 of 3",
+        "name": "Pajama Party, Rem",
+        "numbers": [
+          "RZ/S116-P09S"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "D_Cide Traumerei choose 1 of 3",
+        "name": "Top Idol, Ariya",
+        "numbers": [
+          "DCT/S86-002"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "D_Cide Traumerei choose 1 of 3",
+        "name": "Noticing Her Own Feelings, Eru",
+        "numbers": [
+          "DCT/S86-076"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "D_Cide Traumerei choose 1 of 3",
+        "name": "Incredible Transfer Student, Eru",
+        "numbers": [
+          "DCT/S86-088"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Puzzle & Dragons",
+        "name": "Sweet Cipher Dragon Caller, Ney",
+        "numbers": [
+          "PAD/S105-003"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Sword Art Online",
+        "name": "Straight Path, Alice",
+        "numbers": [
+          "SAO/S100-011"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Fate choose 1 of 3",
+        "name": "Silver Thread Alchemy Elgen Lied, Illya",
+        "numbers": [
+          "FS/S34-078"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Fate choose 1 of 3",
+        "name": "Late Night Patrol, Rin & Archer",
+        "numbers": [
+          "FS/S36-P03"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Fate choose 1 of 3",
+        "name": "HEROIC, Rin & Archer",
+        "numbers": [
+          "FS/S64-063"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Date A Live",
+        "name": "Terrible Spirit, Kurumi",
+        "numbers": [
+          "DAL/W79-053"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Haruhi Suzumiya",
+        "name": "Release of Information Binding",
+        "numbers": [
+          "SY/W08-097"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Persona",
+        "name": "Kamiki Akinari",
+        "numbers": [
+          "P3/S01-014"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Kantai Collection choose 1 of 2",
+        "name": "7th Kagero-class Destroyer, Hatsukaze",
+        "numbers": [
+          "KC/S25-006",
+          "KC/S42-105"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Kantai Collection choose 1 of 2",
+        "name": "2nd Akatsuki-class Destroyer, Hibiki",
+        "numbers": [
+          "KC/S25-056"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Uma Musume Pretty Derby choose 1 of 3",
+        "name": "Cynical Girl, Nice Nature",
+        "numbers": [
+          "UMA/W106-T11"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Uma Musume Pretty Derby choose 1 of 3",
+        "name": "Academy Chairman, Yayoi Akikawa",
+        "numbers": [
+          "UMA/W106-035"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Uma Musume Pretty Derby choose 1 of 3",
+        "name": "Vernissage Line, Mejiro Bright",
+        "numbers": [
+          "UMA/W106-131"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Love Live Superstar choose 1 of 2",
+        "name": "Song For All!!",
+        "numbers": [
+          "LSP/W92-038"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Love Live Superstar choose 1 of 2",
+        "name": "Liella! Keke",
+        "numbers": [
+          "LSP/W92-083"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Love Live Superstar",
+        "name": "Galaxy, Sumire",
+        "numbers": [
+          "LSP/W92-062"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Da Capo choose 1 of 2",
+        "name": "Swimsuit Anzu",
+        "numbers": [
+          "DC/W01-091"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Da Capo choose 1 of 2",
+        "name": "Xylophone Divination",
+        "numbers": [
+          "DC/W01-095"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Project SEKAI choose 1 of 2",
+        "name": "Appreciating That Spirit, Rui Kamishiro",
+        "numbers": [
+          "PJS/S109-001"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Project SEKAI choose 1 of 2",
+        "name": "Outdoor Cooking! Toya Aoyagi",
+        "numbers": [
+          "PJS/S109-060"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Hina Logic",
+        "name": "Watcher, Principal",
+        "numbers": [
+          "HLL/WE29-11"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Gakuen Idolmaster",
+        "name": "Ivy, Temari Tsukimura",
+        "numbers": [
+          "GIM/W124-071",
+          "GIM/W124-071a",
+          "GIM/W124-071b"
+        ]
+      },
+      {
+        "game": "Weiss Schwarz (JP)",
+        "kind": "choice",
+        "limit": 1,
+        "group": "Gakuen Idolmaster choose 1 of 2",
+        "name": "Encounter with You and Soaring Into the Dreams, Saki Hanami",
+        "numbers": [
+          "GIM/W124-045"
+        ]
+      },
+      {
+        "game": "Union Arena (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Effective 2026-04-01 Evangelion",
+        "name": "Shikinami Asuka Langley",
+        "numbers": [
+          "EVA-1-051"
+        ]
+      },
+      {
+        "game": "Union Arena (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Effective 2026-04-01 Evangelion",
+        "name": "Gaius's Spear",
+        "numbers": [
+          "EVA-1-063"
+        ]
+      },
+      {
+        "game": "Union Arena (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Effective 2026-04-01 Evangelion",
+        "name": "Rei Ayanami",
+        "numbers": [
+          "EVA-1-004"
+        ]
+      },
+      {
+        "game": "Union Arena (JP)",
+        "kind": "restricted",
+        "limit": 2,
+        "group": "Effective 2026-04-01 Evangelion",
+        "name": "Evangelion Unit-02 Kai",
+        "numbers": [
+          "EVA-1-041"
+        ]
+      },
+      {
+        "game": "Union Arena (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Currently in effect Code Geass",
+        "name": "Nunnally Lamperouge",
+        "numbers": [
+          "CGH-1-083"
+        ]
+      },
+      {
+        "game": "Union Arena (JP)",
+        "kind": "restricted",
+        "limit": 1,
+        "group": "Currently in effect Code Geass",
+        "name": "foul bout",
+        "numbers": [
+          "CGD-1-070"
+        ]
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "Called Shot",
+        "numbers": []
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "Draven, Vanquisher",
+        "numbers": []
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "Fight or Flight",
+        "numbers": []
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "Scrapheap",
+        "numbers": []
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "Obelisk of Power",
+        "numbers": [
+          "284"
+        ]
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "Reaver's Row",
+        "numbers": [
+          "285"
+        ]
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Riftbound banned list",
+        "name": "The Dreaming Tree",
+        "numbers": [
+          "292"
+        ]
+      },
+      {
+        "game": "Riftbound",
+        "kind": "banned",
+        "limit": 0,
+        "group": "Upcoming ban effective 2026-07-24",
+        "name": "Stealthy Pursuer",
+        "numbers": []
+      }
+    ]
+  }
+}

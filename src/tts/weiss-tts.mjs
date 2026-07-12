@@ -2,6 +2,7 @@ import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { normalizeDeckSection } from "../shared/deck-sections.mjs";
 
 const SHEET_COLUMNS = 10;
 const SHEET_ROWS = 7;
@@ -12,6 +13,14 @@ const HOLOLIVE_MAIN_CARD_BACK_URL =
   "https://steamusercontent-a.akamaihd.net/ugc/14311686523205718977/489BE6E2BF2617D0F1EA56ADC714A8BE3C50775E/";
 const HOLOLIVE_OSHI_CHEER_CARD_BACK_URL =
   "https://steamusercontent-a.akamaihd.net/ugc/11673131915085227537/3D00A63C06A2F548E0A38F8C943E291766A203F8/";
+const UNION_ARENA_EN_CARD_BACK_URL =
+  "https://steamusercontent-a.akamaihd.net/ugc/2378552413975102727/994C244543EC897E5674DABD4F5C2C298587FBF1/";
+const UNION_ARENA_JP_CARD_BACK_URL =
+  "https://steamusercontent-a.akamaihd.net/ugc/2480995803959996486/55D57763932061EE55F5DFE188609C79C538F955/";
+const RIFTBOUND_CARD_BACK_URL =
+  "https://steamusercontent-a.akamaihd.net/ugc/17688218182195221720/C0AEF1C3E0A5694D46C19B17437C2C07790FF943/";
+const RIFTBOUND_RUNE_CARD_BACK_URL =
+  "https://steamusercontent-a.akamaihd.net/ugc/11360156058649621400/9E42514E1839ADB4B820E74D40E4FCB60B480F02/";
 
 const WEISS_CARD_LUA = String.raw`data = {
     game = "weiss",
@@ -458,6 +467,73 @@ export async function generateHololiveTtsDeck(deck, currentPort, settings = {}) 
   };
 }
 
+export async function generateUnionArenaTtsDeck(deck, currentPort, settings = {}) {
+  const isJp = String(deck.game || "").includes("(JP)") || (deck.cards || []).some((card) => String(card.locale || "").toLowerCase() === "jp");
+  return generateSectionedDirectTtsDeck(deck, currentPort, settings, {
+    defaultDeckName: "Union Arena Deck",
+    game: "union-arena",
+    backUrl: isJp ? UNION_ARENA_JP_CARD_BACK_URL : UNION_ARENA_EN_CARD_BACK_URL,
+    groups: [
+      { section: "Main", name: "Main Deck", nickname: "main", baseDeckKey: 6000, position: { posX: 0, posY: 1, posZ: 0 }, tags: ["Main"] },
+      { section: "Action Points", name: "Action Points", nickname: "action points", baseDeckKey: 7000, position: { posX: 3.2, posY: 1, posZ: 0 }, tags: ["Action Points", "AP"], backUrl: UNION_ARENA_JP_CARD_BACK_URL },
+    ],
+    imageUrl: unionArenaFaceUrl,
+    makeCard: makeUnionArenaCardCustom,
+  });
+}
+
+export async function generateRiftboundTtsDeck(deck, currentPort, settings = {}) {
+  return generateSectionedDirectTtsDeck(deck, currentPort, settings, {
+    defaultDeckName: "Riftbound Deck",
+    game: "riftbound",
+    backUrl: RIFTBOUND_CARD_BACK_URL,
+    groups: [
+      { section: "Champion", name: "Champion", nickname: "champion", baseDeckKey: 3000, position: { posX: -5.4, posY: 2.2, posZ: 0 }, spawnLast: true, tags: ["Champion"] },
+      { section: "Legend", name: "Legend", nickname: "legend", baseDeckKey: 3600, position: { posX: -2.7, posY: 2.2, posZ: 0 }, spawnLast: true, tags: ["Legend"] },
+      { section: "Deck", name: "Main Deck", nickname: "main", baseDeckKey: 1000, position: { posX: 0, posY: 1, posZ: 0 }, rotZ: 180, tags: ["Main"] },
+      { section: "Runes", name: "Rune", nickname: "rune", baseDeckKey: 3500, position: { posX: 2.7, posY: 1, posZ: 0 }, rotZ: 180, tags: ["Rune"], backUrl: RIFTBOUND_RUNE_CARD_BACK_URL },
+      { section: "Battlefields", name: "Battlefield", nickname: "battlefield", baseDeckKey: 2000, position: { posX: 5.4, posY: 1, posZ: 0 }, rotY: 90, rotZ: 180, tags: ["Battlefield"] },
+      { section: "Sideboard", name: "Sideboard", nickname: "sideboard", baseDeckKey: 4000, position: { posX: 5.4, posY: 1, posZ: 2.7 }, rotY: 90, rotZ: 180, tags: ["Sideboard"] },
+    ],
+    imageUrl: riftboundFaceUrl,
+    makeCard: makeRiftboundCardCustom,
+  });
+}
+
+async function generateSectionedDirectTtsDeck(deck, currentPort, settings = {}, config) {
+  const deckName = String(deck.name || config.defaultDeckName).trim() || config.defaultDeckName;
+  const deckSlug = safeFileName(deckName).replace(/\s+/g, "-").toLowerCase();
+  const outDir = resolve("outputs", "tts", deckSlug);
+  const assetBaseUrl = `http://127.0.0.1:${currentPort}/assets/`;
+  const physicalCards = expandCards(deck.cards);
+  const ttsObject = makeSectionedDirectTtsObject(deckName, physicalCards, config);
+  const appOutPath = resolve(outDir, `${safeFileName(deckName)}.json`);
+  const exportDir = String(settings.ttsJsonExportDir || "").trim();
+  const outPath = exportDir ? resolve(exportDir, `${safeFileName(deckName)}.json`) : appOutPath;
+
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(appOutPath, `${JSON.stringify(ttsObject, null, 2)}\n`);
+  if (outPath !== appOutPath) {
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, `${JSON.stringify(ttsObject, null, 2)}\n`);
+  }
+
+  const readmePath = resolve(outDir, "README-next-steps.txt");
+  writeFileSync(readmePath, nextStepsText(deckName, outPath, []));
+
+  return {
+    deckName,
+    cards: physicalCards.length,
+    uniqueCards: uniqueCardKeyedByImage(physicalCards).length,
+    sheets: 0,
+    outputPath: outPath,
+    appOutputPath: appOutPath,
+    readmePath,
+    outputUrl: new URL(relativeAssetPath(appOutPath), assetBaseUrl).toString(),
+    sheetUrls: [],
+  };
+}
+
 async function generateTtsDeck(deck, currentPort, settings = {}, config) {
   const deckName = String(deck.name || config.defaultDeckName).trim() || config.defaultDeckName;
   const deckSlug = safeFileName(deckName).replace(/\s+/g, "-").toLowerCase();
@@ -702,6 +778,100 @@ function makeHololiveTtsObject(name, cards) {
   };
 }
 
+function makeSectionedDirectTtsObject(name, cards, config) {
+  const objectStates = [];
+  const deferredObjectStates = [];
+
+  for (const group of config.groups) {
+    const groupCards = cards.filter((card) => normalizeDeckSection(card, gameNameForTts(config.game)) === group.section);
+    if (!groupCards.length) continue;
+    const slotByKey = makeDirectCardSlots(groupCards, group.baseDeckKey);
+    const makeCard = (card, cardId, deckKey, deckEntry, position) => config.makeCard(card, cardId, deckKey, deckEntry, position, config, group);
+    const targetStates = group.spawnLast ? deferredObjectStates : objectStates;
+
+    if (groupCards.length === 1) {
+      const card = groupCards[0];
+      const slot = slotByKey.get(uniqueCardKey(card));
+      targetStates.push(makeCard(card, slot.cardId, slot.deckKey, directDeckEntryFromUrl(config.imageUrl(card), group.backUrl || config.backUrl), group.position));
+      continue;
+    }
+
+    targetStates.push(makeDirectDeckObject(group.name, group.nickname, groupCards, slotByKey, config, group, makeCard));
+  }
+
+  objectStates.push(...deferredObjectStates);
+
+  return {
+    SaveName: name,
+    Date: new Date().toISOString(),
+    VersionNumber: "",
+    GameMode: "",
+    GameType: "",
+    GameComplexity: "",
+    Tags: [],
+    Gravity: 0.5,
+    PlayArea: 0.5,
+    Table: "",
+    Sky: "",
+    Note: "",
+    TabStates: {},
+    LuaScript: "",
+    LuaScriptState: "",
+    XmlUI: "",
+    ObjectStates: objectStates,
+  };
+}
+
+function makeDirectDeckObject(name, nickname, cards, slotByKey, config, group, makeCard) {
+  const customDeck = {};
+  const deckIds = [];
+  const containedObjects = [];
+
+  for (const card of uniqueCardKeyedByImage(cards)) {
+    const slot = slotByKey.get(uniqueCardKey(card));
+    customDeck[slot.deckKey] = directDeckEntryFromUrl(config.imageUrl(card), group.backUrl || config.backUrl);
+  }
+
+  for (const card of cards) {
+    const slot = slotByKey.get(uniqueCardKey(card));
+    deckIds.push(slot.cardId);
+    containedObjects.push(makeCard(card, slot.cardId, slot.deckKey, customDeck[slot.deckKey]));
+  }
+
+  return {
+    GUID: ttsGuid(),
+    Name: "Deck",
+    Transform: ttsTransformForGroup(group.position, group),
+    Nickname: nickname || name,
+    Description: "",
+    ...(group.tags?.length ? { Tags: group.tags } : {}),
+    GMNotes: JSON.stringify({ game: config.game, section: group.section }),
+    AltLookAngle: { x: 0, y: 0, z: 0 },
+    ColorDiffuse: { r: 0.713235259, g: 0.713235259, b: 0.713235259 },
+    LayoutGroupSortIndex: 0,
+    Value: 0,
+    Locked: false,
+    Grid: true,
+    Snap: true,
+    IgnoreFoW: false,
+    MeasureMovement: false,
+    DragSelectable: true,
+    Autoraise: true,
+    Sticky: true,
+    Tooltip: true,
+    GridProjection: false,
+    HideWhenFaceDown: true,
+    Hands: false,
+    SidewaysCard: false,
+    DeckIDs: deckIds,
+    CustomDeck: customDeck,
+    LuaScript: "",
+    LuaScriptState: "",
+    XmlUI: "",
+    ContainedObjects: containedObjects,
+  };
+}
+
 function makeDirectCardSlots(cards, baseDeckKey) {
   const uniqueCards = uniqueCardKeyedByImage(cards);
   const slots = new Map();
@@ -816,9 +986,90 @@ function makeHololiveCardCustom(card, cardId, deckKey, deckEntry, position = { p
   };
 }
 
+function makeUnionArenaCardCustom(card, cardId, deckKey, deckEntry, position = { posX: 0, posY: 1, posZ: 0 }, _config = {}, group = {}) {
+  return makeGenericCardCustom(card, cardId, deckKey, deckEntry, position, {
+    game: "union-arena",
+    nickname: `${card.name || "Union Arena Card"} - ${card.number || ""}`.trim(),
+    description: describeUnionArenaCard(card),
+    gmNotes: {
+      game: "union-arena",
+      number: card.number,
+      detailUrl: card.detailUrl,
+      cardType: card.cardType || "",
+      section: normalizeDeckSection(card, card.game),
+      color: card.color || "",
+      rarity: card.rarity || "",
+      locale: card.locale || "",
+    },
+    tags: normalizeDeckSection(card, card.game) === "Action Points" ? ["Action Points", "AP"] : [],
+  }, group);
+}
+
+function makeRiftboundCardCustom(card, cardId, deckKey, deckEntry, position = { posX: 0, posY: 1, posZ: 0 }, _config = {}, group = {}) {
+  return makeGenericCardCustom(card, cardId, deckKey, deckEntry, position, {
+    game: "riftbound",
+    nickname: card.name || "Riftbound Card",
+    description: describeRiftboundCard(card),
+    gmNotes: {
+      game: "riftbound",
+      number: card.number,
+      section: normalizeDeckSection(card, "Riftbound"),
+      riftboundChampion: Boolean(card.riftboundChampion || card.isChosenChampion),
+      ...(card.tts || {}),
+    },
+    tags: riftboundTtsTags(card),
+  }, group);
+}
+
+function makeGenericCardCustom(card, cardId, deckKey, deckEntry, position, config, group = {}) {
+  return {
+    GUID: ttsGuid(),
+    Name: "CardCustom",
+    Transform: ttsTransformForGroup(position, group),
+    Nickname: config.nickname,
+    Description: config.description,
+    ...(config.tags?.length ? { Tags: config.tags } : {}),
+    GMNotes: JSON.stringify(config.gmNotes),
+    AltLookAngle: { x: 0, y: 0, z: 0 },
+    ColorDiffuse: { r: 0.713235259, g: 0.713235259, b: 0.713235259 },
+    LayoutGroupSortIndex: 0,
+    Value: 0,
+    Locked: false,
+    Grid: true,
+    Snap: true,
+    IgnoreFoW: false,
+    MeasureMovement: false,
+    DragSelectable: true,
+    Autoraise: true,
+    Sticky: true,
+    Tooltip: true,
+    GridProjection: false,
+    HideWhenFaceDown: true,
+    Hands: true,
+    CardID: cardId,
+    SidewaysCard: false,
+    CustomDeck: { [deckKey]: deckEntry },
+    LuaScript: "",
+    LuaScriptState: "",
+    XmlUI: "",
+  };
+}
+
 function directDeckEntry(card, backUrl) {
   return {
     FaceURL: hololiveFaceUrl(card),
+    BackURL: backUrl,
+    NumWidth: 1,
+    NumHeight: 1,
+    BackIsHidden: true,
+    UniqueBack: false,
+    Type: 0,
+  };
+}
+
+function directDeckEntryFromUrl(faceUrl, backUrl) {
+  return {
+    FaceURL: String(faceUrl || "").trim(),
     BackURL: backUrl,
     NumWidth: 1,
     NumHeight: 1,
@@ -888,11 +1139,58 @@ function ttsTransform(position = {}) {
   };
 }
 
+function ttsTransformForGroup(position = {}, group = {}) {
+  return {
+    ...ttsTransform(position),
+    rotY: Number(group.rotY ?? 180),
+    rotZ: Number(group.rotZ ?? 0),
+    scaleX: Number(group.scaleX ?? 1),
+    scaleZ: Number(group.scaleZ ?? 1),
+  };
+}
+
 function hololiveNickname(card) {
   return `${card.name || "Hololive Card"} - ${card.number || ""}`.trim();
 }
 
 function hololiveFaceUrl(card) {
+  return String(card.imageUrl || "").trim();
+}
+
+function unionArenaFaceUrl(card) {
+  const proxyUrl = String(card.proxyImageUrl || "").trim();
+  if (proxyUrl) return proxyUrl;
+  const rawUrl = String(card.imageUrl || card.rawImageUrl || "").trim();
+  if (isUnionArenaJpCard(card) && rawUrl) return rawUrl;
+  const cloudinaryUrl = unionArenaCloudinaryFaceUrl(card);
+  if (cloudinaryUrl) return cloudinaryUrl;
+  return rawUrl;
+}
+
+function unionArenaCloudinaryFaceUrl(card) {
+  const number = String(card.number || card.originalId || "").trim();
+  if (!number) return "";
+  const filename = unionArenaCloudinaryFilename(card);
+  if (normalizeDeckSection(card, card.game) === "Action Points" || /^UAPR-/i.test(number)) {
+    return `https://res.cloudinary.com/dxqtcohxz/image/upload/${filename}.png#50626`;
+  }
+  return "";
+}
+
+function unionArenaCloudinaryFilename(card) {
+  const number = String(card.number || "").trim();
+  const originalId = String(card.originalId || "").trim();
+  const alt = number.match(/-ALT(\d+)$/i);
+  const base = alt ? originalId || number.replace(/-ALT\d+$/i, "") : number || originalId;
+  const suffix = alt ? `_p${alt[1]}` : "";
+  return `${base}${suffix}`.replace(/\//g, "_");
+}
+
+function isUnionArenaJpCard(card) {
+  return String(card.game || "").includes("(JP)") || String(card.locale || "").toLowerCase() === "jp";
+}
+
+function riftboundFaceUrl(card) {
   return String(card.imageUrl || "").trim();
 }
 
@@ -1030,6 +1328,39 @@ function describeHololiveCard(card) {
   return blocks.filter(Boolean).join("\n\n");
 }
 
+function describeUnionArenaCard(card) {
+  return [
+    card.number,
+    card.cardType || card.section,
+    card.color && `Color: ${card.color}`,
+    card.energyCost && `Energy Cost: ${card.energyCost}`,
+    card.ap && `AP Cost: ${card.ap}`,
+    (card.bp || card.power) && `BP: ${card.bp || card.power}`,
+    card.generatedEnergy && `Energy Generated: ${card.generatedEnergy}`,
+    card.trigger && `Trigger: ${card.trigger}`,
+    card.rarity && `Rarity: ${card.rarity}`,
+    card.features && `Features: ${card.features}`,
+    "",
+    card.text || "",
+  ].filter(Boolean).join("\n");
+}
+
+function describeRiftboundCard(card) {
+  return [
+    card.number,
+    card.cardType || card.section,
+    card.supertype && `Supertype: ${card.supertype}`,
+    card.color && `Color: ${card.color}`,
+    card.energy && `Energy: ${card.energy}`,
+    card.might && `Might: ${card.might}`,
+    card.power && `Power: ${card.power}`,
+    card.rarity && `Rarity: ${card.rarity}`,
+    card.tags && `Tags: ${card.tags}`,
+    "",
+    card.text || "",
+  ].filter(Boolean).join("\n");
+}
+
 function formatHololiveAbility(value) {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
@@ -1107,6 +1438,22 @@ function hasWeissCounters(card) {
 function isHololiveEquipable(card) {
   const type = String(card.cardType || "").toLowerCase();
   return type.includes("support") && (type.includes("mascot") || type.includes("fan") || type.includes("tool"));
+}
+
+function riftboundTtsTags(card) {
+  const section = normalizeDeckSection(card, "Riftbound");
+  if (section === "Legend") return ["Legend"];
+  if (section === "Champion") return ["Champion", "Chosen Champion"];
+  if (section === "Runes") return ["Rune"];
+  if (section === "Battlefields") return ["Battlefield"];
+  if (section === "Sideboard") return ["Sideboard"];
+  return [];
+}
+
+function gameNameForTts(game) {
+  if (game === "union-arena") return "Union Arena (EN)";
+  if (game === "riftbound") return "Riftbound";
+  return game;
 }
 
 function weissPowerValue(value) {

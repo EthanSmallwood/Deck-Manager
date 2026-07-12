@@ -19,7 +19,8 @@
           <option>All Games</option>
           <option>Weiss Schwarz (EN)</option>
           <option>Weiss Schwarz (JP)</option>
-          <option>Hololive OCG</option>
+          <option>Hololive OCG (EN)</option>
+          <option>Hololive OCG (JP)</option>
           <option>Riftbound</option>
           <option>Union Arena (EN)</option>
           <option>Union Arena (JP)</option>
@@ -58,7 +59,8 @@
             <select id="gameInput">
               <option>Weiss Schwarz (EN)</option>
               <option>Weiss Schwarz (JP)</option>
-              <option>Hololive OCG</option>
+              <option>Hololive OCG (EN)</option>
+              <option>Hololive OCG (JP)</option>
               <option>Riftbound</option>
               <option>Union Arena (EN)</option>
               <option>Union Arena (JP)</option>
@@ -94,7 +96,7 @@
 
         <div class="importer">
           <div class="import-row">
-            <input id="deckUrlInput" placeholder="Encore, Decklog, or Piltover URL">
+            <textarea id="deckUrlInput" rows="3" placeholder="Paste one or more Encore, Decklog, Piltover, or ExBurst URLs. Add suffixes like -WSjp, -UAen, -hocg, -riftbound."></textarea>
             <button id="importUrlBtn">Import</button>
           </div>
           <textarea id="deckText" spellcheck="false" placeholder="Paste Weiss decklist here"></textarea>
@@ -139,71 +141,120 @@
   </div>
 
   <div id="settingsModal" class="modal" hidden>
-    <div class="modal-backdrop" data-close-settings></div>
-    <article class="settings-dialog">
-      <header class="card-dialog-header">
+    <article class="settings-page">
+      <header class="settings-page-header">
         <div>
           <h3>Settings</h3>
-          <p>Database and local tool actions.</p>
+          <p>Database builds, local exports, and game rule restrictions.</p>
         </div>
         <button id="closeSettingsModal" aria-label="Close settings">Close</button>
       </header>
-      <section class="settings-body">
-        <div>
-          <h4>Weiss Schwarz (EN)</h4>
-          <p>Rebuild the local card database from the official English Weiss card list.</p>
+
+      <div class="settings-layout">
+        <aside class="settings-menu">
+          <a href="#settingsDatabases">Databases</a>
+          <a href="#settingsRestrictions">Restrictions</a>
+          <a href="#settingsLocal">Local Files</a>
+        </aside>
+
+        <div class="settings-content">
+          <section id="settingsDatabases" class="settings-panel">
+            <header>
+              <h4>Card Databases</h4>
+              <p>Rebuild local card data used by import, builder search, and collection matching.</p>
+            </header>
+            <div class="settings-action-grid">
+              <div>
+                <strong>Weiss Schwarz (EN)</strong>
+                <p>Official English Weiss card list.</p>
+                <button id="buildWeissDbBtn">Build Weiss (EN) Card DB</button>
+              </div>
+              <div>
+                <strong>Weiss Schwarz (JP)</strong>
+                <p>Japanese Weiss database for JP imports.</p>
+                <button id="buildWeissJpDbBtn">Build JP Weiss Card DB</button>
+              </div>
+              <div>
+                <strong>Hololive OCG (EN)</strong>
+                <p>Official English Hololive card list.</p>
+                <button id="buildHololiveDbBtn">Build Hololive Card DB</button>
+              </div>
+              <div>
+                <strong>Hololive OCG (JP)</strong>
+                <p>Official Japanese Hololive cards merged with the translation sheet.</p>
+                <button id="buildHololiveJpDbBtn">Build Hololive JP Card DB</button>
+              </div>
+              <div>
+                <strong>Riftbound</strong>
+                <p>Piltover Archive card data.</p>
+                <button id="buildRiftboundDbBtn">Build Riftbound Card DB</button>
+              </div>
+              <div>
+                <strong>Union Arena (EN)</strong>
+                <p>ExBurst English Union Arena data.</p>
+                <button id="buildUnionArenaDbBtn">Build Union Arena (EN) Card DB</button>
+              </div>
+              <div>
+                <strong>Union Arena (JP)</strong>
+                <p>ExBurst Japanese Union Arena data.</p>
+                <button id="buildUnionArenaJpDbBtn">Build Union Arena (JP) Card DB</button>
+              </div>
+            </div>
+          </section>
+
+          <section id="settingsRestrictions" class="settings-panel">
+            <header class="settings-panel-header">
+              <div>
+                <h4>Game Restrictions</h4>
+                <p>Ban lists, limited cards, choice groups, and shared copy caps. These apply to builder and deck validation.</p>
+              </div>
+              <button id="addRestrictionBtn" type="button">Add Restriction</button>
+            </header>
+            <div class="restriction-filter-row">
+              <label>
+                Game
+                <select id="restrictionGameInput">
+                  <option>Weiss Schwarz (EN)</option>
+                  <option>Weiss Schwarz (JP)</option>
+                  <option>Hololive OCG (EN)</option>
+                  <option>Hololive OCG (JP)</option>
+                  <option>Union Arena (EN)</option>
+                  <option>Union Arena (JP)</option>
+                  <option>Riftbound</option>
+                </select>
+              </label>
+              <label>
+                Last ban-list date
+                <input id="restrictionDateInput" placeholder="YYYY-MM-DD">
+              </label>
+            </div>
+            <div class="restriction-list-head">
+              <span>Rule</span>
+              <span>Limit</span>
+              <span>Group</span>
+              <span>Card name</span>
+              <span>Card numbers</span>
+              <span></span>
+            </div>
+            <div id="restrictionsList" class="restriction-list"></div>
+          </section>
+
+          <section id="settingsLocal" class="settings-panel">
+            <header>
+              <h4>Local Files</h4>
+              <p>Paths and cache tools for generated Tabletop Simulator assets.</p>
+            </header>
+            <label>
+              TTS Saved Object JSON Folder
+              <input id="ttsJsonExportDirInput">
+            </label>
+            <div class="settings-button-row">
+              <button id="clearImageCacheBtn">Clear Cached Images</button>
+              <button id="saveSettingsBtn">Save Settings</button>
+            </div>
+          </section>
         </div>
-        <button id="buildWeissDbBtn">Build Weiss (EN) Card DB</button>
-      </section>
-      <section class="settings-body">
-        <div>
-          <h4>Weiss Schwarz (JP)</h4>
-          <p>Build the local Japanese Weiss card database for JP card number imports.</p>
-        </div>
-        <button id="buildWeissJpDbBtn">Build JP Weiss Card DB</button>
-      </section>
-      <section class="settings-body">
-        <div>
-          <h4>Hololive OCG</h4>
-          <p>Rebuild the local card database from the official English Hololive card list.</p>
-        </div>
-        <button id="buildHololiveDbBtn">Build Hololive Card DB</button>
-      </section>
-      <section class="settings-body">
-        <div>
-          <h4>Riftbound</h4>
-          <p>Rebuild the local Riftbound card database from Piltover Archive.</p>
-        </div>
-        <button id="buildRiftboundDbBtn">Build Riftbound Card DB</button>
-      </section>
-      <section class="settings-body">
-        <div>
-          <h4>Union Arena (EN)</h4>
-          <p>Rebuild the local Union Arena (EN) card database from ExBurst.</p>
-        </div>
-        <button id="buildUnionArenaDbBtn">Build Union Arena (EN) Card DB</button>
-      </section>
-      <section class="settings-body">
-        <div>
-          <h4>Union Arena (JP)</h4>
-          <p>Rebuild the local Union Arena (JP) card database from ExBurst.</p>
-        </div>
-        <button id="buildUnionArenaJpDbBtn">Build Union Arena (JP) Card DB</button>
-      </section>
-      <section class="settings-body">
-        <div>
-          <h4>Image Cache</h4>
-          <p>Delete generated TTS card and sheet images. Saved object JSON files are kept.</p>
-        </div>
-        <button id="clearImageCacheBtn">Clear Cached Images</button>
-      </section>
-      <section class="settings-body settings-path">
-        <label>
-          TTS Saved Object JSON Folder
-          <input id="ttsJsonExportDirInput">
-        </label>
-        <button id="saveSettingsBtn">Save Settings</button>
-      </section>
+      </div>
       <pre id="settingsLog" class="settings-log"></pre>
     </article>
   </div>
@@ -224,7 +275,8 @@
           <select id="builderGameInput">
             <option>Weiss Schwarz (EN)</option>
             <option>Weiss Schwarz (JP)</option>
-            <option>Hololive OCG</option>
+            <option>Hololive OCG (EN)</option>
+            <option>Hololive OCG (JP)</option>
             <option>Riftbound</option>
             <option>Union Arena (EN)</option>
             <option>Union Arena (JP)</option>
@@ -333,7 +385,8 @@
           <select id="collectionGameFilter">
             <option>Weiss Schwarz (EN)</option>
             <option>Weiss Schwarz (JP)</option>
-            <option>Hololive OCG</option>
+            <option>Hololive OCG (EN)</option>
+            <option>Hololive OCG (JP)</option>
             <option>Riftbound</option>
             <option>Union Arena (EN)</option>
             <option>Union Arena (JP)</option>

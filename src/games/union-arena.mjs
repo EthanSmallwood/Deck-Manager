@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { normalizeDeckSection } from "../shared/deck-sections.mjs";
 
 const UNION_ARENA_DB_PATH = "data/cards/union-arena-cards.json";
 const UNION_ARENA_JP_DB_PATH = "data/cards/union-arena-jp-cards.json";
@@ -47,7 +48,8 @@ export async function importExburstUnionArenaDeck(value) {
       missing.push(item);
       continue;
     }
-    resolvedCards.push({ ...card, qty: item.qty, section: item.section || card.section || "Main" });
+    const section = normalizeDeckSection({ ...card, section: item.section || card.section }, gameNameForLocale(parsed.locale));
+    resolvedCards.push({ ...card, qty: item.qty, section });
   }
 
   const totalCards = resolvedCards.reduce((sum, card) => sum + Number(card.qty || 0), 0);
@@ -92,7 +94,7 @@ export function normalizeUnionArenaCard(input, fallbackLocale = "en") {
     name: String(card.name || card.number || card.cardNo || ""),
     game: locale === "jp" ? "Union Arena (JP)" : "Union Arena (EN)",
     locale,
-    section: String(card.cardType || card.categoryData || "Main"),
+    section: normalizeDeckSection({ section: card.section || card.cardType || card.categoryData, cardType: card.cardType || card.categoryData }, locale === "jp" ? "Union Arena (JP)" : "Union Arena (EN)"),
     cardType: String(card.cardType || card.categoryData || ""),
     color: String(card.color || ""),
     level: String(card.energyCost || card.cost || card.needEnergyData || ""),
@@ -226,6 +228,10 @@ function normalizeCardNumber(value) {
 
 function databasePath(locale) {
   return locale === "jp" ? UNION_ARENA_JP_DB_PATH : UNION_ARENA_DB_PATH;
+}
+
+function gameNameForLocale(locale) {
+  return normalizeLocale(locale) === "jp" ? "Union Arena (JP)" : "Union Arena (EN)";
 }
 
 function normalizeLocale(value) {

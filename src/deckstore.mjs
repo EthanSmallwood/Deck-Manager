@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { normalizeDeckSection } from "./shared/deck-sections.mjs";
 
 const DATA_PATH = resolve("data/decks.json");
 
@@ -70,6 +71,7 @@ function normalizeDeck(deck) {
 }
 
 function normalizeCard(card) {
+  const game = normalizeGame(card.game, card.locale);
   return {
     qty: Number(card.qty || card.num || 1),
     id: String(card.id || ""),
@@ -77,11 +79,12 @@ function normalizeCard(card) {
     cardId: String(card.cardId || ""),
     number: String(card.number || card.cardNumber || ""),
     name: String(card.name || ""),
-    game: normalizeGame(card.game, card.locale),
+    game,
     locale: String(card.locale || ""),
-    section: String(card.section || card.category || ""),
+    section: normalizeDeckSection({ ...card, section: card.section || card.category }, game),
     cardType: String(card.cardType || ""),
     color: String(card.color || ""),
+    colors: Array.isArray(card.colors) ? card.colors : [],
     level: String(card.level || ""),
     bloomLevel: String(card.bloomLevel || ""),
     cost: String(card.cost || ""),
@@ -121,6 +124,7 @@ function normalizeCard(card) {
     extra: card.extra && typeof card.extra === "object" ? card.extra : { label: "", text: "" },
     extraText: String(card.extraText || ""),
     isExtra: Boolean(card.isExtra),
+    riftboundChampion: Boolean(card.riftboundChampion || card.isChosenChampion),
     tags: String(card.tags || ""),
     tagsList: Array.isArray(card.tagsList) ? card.tagsList : [],
     imageUrl: String(card.imageUrl || ""),
@@ -130,6 +134,14 @@ function normalizeCard(card) {
     proxyOutputPath: String(card.proxyOutputPath || ""),
     detailUrl: String(card.detailUrl || ""),
     translationUrl: String(card.translationUrl || ""),
+    jpName: String(card.jpName || ""),
+    jpText: String(card.jpText || ""),
+    jpAbilityText: String(card.jpAbilityText || ""),
+    translatedName: String(card.translatedName || ""),
+    translatedText: String(card.translatedText || ""),
+    translationSource: String(card.translationSource || ""),
+    translationNotes: String(card.translationNotes || ""),
+    tts: card.tts && typeof card.tts === "object" ? card.tts : {},
   };
 }
 
@@ -140,7 +152,9 @@ function normalizeGame(value, locale = "") {
   if (game === "Weiss Schwarz JP" || game === "Weiss Schwarz (JP)") return "Weiss Schwarz (JP)";
   if (game === "Union Arena" || game === "Union Arena (EN)") return "Union Arena (EN)";
   if (game === "Union Arena JP" || game === "Union Arena (JP)") return "Union Arena (JP)";
-  if (game === "Hololive OCG" || game === "Riftbound") return game;
+  if (game === "Hololive JP" || game === "Hololive OCG JP" || game === "Hololive OCG (JP)") return "Hololive OCG (JP)";
+  if (game === "Hololive" || game === "Hololive OCG" || game === "Hololive OCG EN" || game === "Hololive OCG (EN)") return "Hololive OCG (EN)";
+  if (game === "Riftbound") return game;
   return "Weiss Schwarz (EN)";
 }
 

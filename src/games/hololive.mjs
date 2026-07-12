@@ -3,19 +3,26 @@ import { resolve } from "node:path";
 import { fetchDecklogPayload } from "./decklog.mjs";
 
 const CARDS_PATH = resolve("data/cards/hololive-cards.json");
+const JP_CARDS_PATH = resolve("data/cards/hololive-jp-cards.json");
 const CARD_IMAGE_BASE = "https://en.hololive-official-cardgame.com/wp-content/images/cardlist/";
 
 let cachedDatabase;
+let cachedJpDatabase;
 
-export function loadHololiveDatabase() {
-  if (!cachedDatabase) {
-    if (!existsSync(CARDS_PATH)) {
-      cachedDatabase = buildDatabase([]);
-    } else {
-      cachedDatabase = buildDatabase(JSON.parse(readFileSync(CARDS_PATH, "utf8")));
-    }
+export function loadHololiveDatabase(locale = "en") {
+  const isJp = String(locale || "").toLowerCase() === "jp";
+  if (isJp) {
+    if (!cachedJpDatabase) cachedJpDatabase = buildDatabase(readCardsFile(JP_CARDS_PATH));
+    return cachedJpDatabase;
   }
+
+  if (!cachedDatabase) cachedDatabase = buildDatabase(readCardsFile(CARDS_PATH));
   return cachedDatabase;
+}
+
+export function clearHololiveDatabaseCache(locale = "") {
+  if (!locale || String(locale).toLowerCase() === "en") cachedDatabase = null;
+  if (!locale || String(locale).toLowerCase() === "jp") cachedJpDatabase = null;
 }
 
 export async function importHololiveDecklogDeck(value) {
@@ -66,7 +73,7 @@ function readDecklogCards(rows, section) {
       qty: Number(row.num || 1),
       number,
       name: String(row.name || official?.name || ""),
-      game: "Hololive OCG",
+      game: "Hololive OCG (EN)",
       section,
       cardType: String(official?.cardType || row.card_kind || ""),
       rarity: String(official?.rarity || row.rare || ""),
@@ -91,6 +98,11 @@ function readDecklogCards(rows, section) {
       imagePath,
     };
   });
+}
+
+function readCardsFile(path) {
+  if (!existsSync(path)) return [];
+  return JSON.parse(readFileSync(path, "utf8"));
 }
 
 function buildDatabase(cards) {
