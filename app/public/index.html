@@ -186,8 +186,9 @@
               </div>
               <div>
                 <strong>Riftbound</strong>
-                <p>Piltover Archive card data.</p>
+                <p>Piltover Archive card data and collection import.</p>
                 <button id="buildRiftboundDbBtn">Build Riftbound Card DB</button>
+                <button id="importPiltoverCollectionBtn" type="button">Import Piltover Collection</button>
               </div>
               <div>
                 <strong>Union Arena (EN)</strong>
@@ -302,32 +303,106 @@
             <select id="builderTypeFilter">
             </select>
           </label>
-          <label>
+          <label class="builder-color-filter">
             Color
             <select id="builderColorFilter">
             </select>
           </label>
-          <div class="builder-filter-range">
+          <label class="builder-extra-filter" data-filter-games="riftbound">
+            Supertype
+            <select id="builderSupertypeFilter">
+              <option value="">All</option>
+              <option>Basic</option>
+              <option>Champion</option>
+              <option>Signature</option>
+              <option>Token</option>
+            </select>
+          </label>
+          <label class="builder-extra-filter" data-filter-games="riftbound">
+            Variant
+            <select id="builderVariantFilter">
+              <option value="">All</option>
+              <option>Standard</option>
+              <option>Foil</option>
+              <option>Promo</option>
+              <option>Alt Art</option>
+              <option>Signature</option>
+              <option>Showcase</option>
+              <option>Special</option>
+              <option>Ultimate</option>
+              <option>Rune</option>
+              <option>Overnumbered</option>
+              <option>Overnumbered Signed</option>
+            </select>
+          </label>
+          <label class="builder-extra-filter" data-filter-games="weiss riftbound hololive union-arena">
+            Rarity
+            <select id="builderRarityFilter"></select>
+          </label>
+          <label class="builder-extra-filter" data-filter-games="riftbound">
+            Domains
+            <select id="builderDomainFilter">
+              <option value="">All</option>
+              <option value="body">Body</option>
+              <option value="calm">Calm</option>
+              <option value="chaos">Chaos</option>
+              <option value="fury">Fury</option>
+              <option value="mind">Mind</option>
+              <option value="order">Order</option>
+            </select>
+          </label>
+          <div class="builder-filter-range builder-level-filter">
             <span id="builderLevelLabel">Level</span>
             <input id="builderLevelMin" type="number" min="0" max="3" placeholder="Min">
             <input id="builderLevelMax" type="number" min="0" max="3" placeholder="Max">
+            <div id="builderBloomButtons" class="bloom-buttons" hidden>
+              <button type="button" data-builder-bloom="0">Debut</button>
+              <button type="button" data-builder-bloom="1">1st</button>
+              <button type="button" data-builder-bloom="2">2nd</button>
+              <button type="button" data-builder-bloom="3">Spot</button>
+            </div>
           </div>
-          <div class="builder-filter-range builder-weiss-filter">
-            <span>Cost</span>
+          <div class="builder-filter-range builder-cost-filter">
+            <span id="builderCostLabel">Cost</span>
             <input id="builderCostMin" type="number" min="0" placeholder="Min">
             <input id="builderCostMax" type="number" min="0" placeholder="Max">
           </div>
-          <div class="builder-filter-range builder-weiss-filter">
+          <div class="builder-filter-range builder-power-filter">
             <span>Power</span>
             <input id="builderPowerMin" type="number" min="0" step="500" placeholder="Min">
             <input id="builderPowerMax" type="number" min="0" step="500" placeholder="Max">
           </div>
-          <div class="builder-filter-range builder-weiss-filter">
+          <div class="builder-filter-range builder-extra-filter" data-filter-games="hololive">
+            <span>HP</span>
+            <input id="builderHpMin" type="number" min="0" step="10" placeholder="Min">
+            <input id="builderHpMax" type="number" min="0" step="10" placeholder="Max">
+          </div>
+          <div class="builder-filter-range builder-extra-filter" data-filter-games="hololive">
+            <span>Arts Dmg</span>
+            <input id="builderArtsMin" type="number" min="0" step="10" placeholder="Min">
+            <input id="builderArtsMax" type="number" min="0" step="10" placeholder="Max">
+          </div>
+          <div class="builder-filter-range builder-extra-filter" data-filter-games="union-arena">
+            <span>Cost (AP)</span>
+            <input id="builderApMin" type="number" min="0" placeholder="Min">
+            <input id="builderApMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range builder-extra-filter" data-filter-games="union-arena">
+            <span>Energy Gen.</span>
+            <input id="builderEnergyGenMin" type="number" min="0" placeholder="Min">
+            <input id="builderEnergyGenMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range builder-extra-filter" data-filter-games="riftbound">
+            <span>Might</span>
+            <input id="builderMightMin" type="number" min="0" placeholder="Min">
+            <input id="builderMightMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range builder-soul-filter">
             <span>Soul</span>
             <input id="builderSoulMin" type="number" min="0" placeholder="Min">
             <input id="builderSoulMax" type="number" min="0" placeholder="Max">
           </div>
-          <label class="builder-weiss-filter">
+          <label class="builder-trigger-filter">
             Trigger
             <select id="builderTriggerFilter">
               <option value="">All</option>
@@ -341,9 +416,13 @@
               <option value="bounce">Bounce</option>
             </select>
           </label>
-          <label class="builder-check builder-weiss-filter">
+          <label class="builder-check builder-alt-filter">
             <input id="builderHideAltCards" type="checkbox">
             Hide alt cards
+          </label>
+          <label class="builder-check">
+            <input id="builderOwnedOnly" type="checkbox">
+            Only owned
           </label>
           <button id="builderClearFiltersBtn" type="button">Clear search conditions</button>
         </aside>
@@ -398,7 +477,7 @@
           <button id="collectionSeriesButton" class="builder-series-button" type="button">All series</button>
           <div id="collectionSeriesMenu" class="builder-series-menu" hidden></div>
         </label>
-        <label class="collection-view-field">
+        <label class="collection-view-field" hidden>
           View
           <select id="collectionViewFilter">
             <option value="all">All cards</option>
@@ -415,7 +494,7 @@
       <section class="collection-layout">
         <aside class="builder-filters collection-filters">
           <h4>Filters</h4>
-          <label>
+          <label hidden>
             Sort
             <select id="collectionSortInput">
               <option value="series">Series</option>
@@ -437,7 +516,7 @@
               <option>Cheer</option>
             </select>
           </label>
-          <label>
+          <label class="collection-color-filter">
             Color
             <select id="collectionColorFilter">
               <option value="">All</option>
@@ -453,27 +532,101 @@
               <option value="P">Holo Purple</option>
             </select>
           </label>
-          <div class="builder-filter-range">
-            <span>Level / Bloom</span>
+          <label class="collection-extra-filter" data-filter-games="riftbound">
+            Supertype
+            <select id="collectionSupertypeFilter">
+              <option value="">All</option>
+              <option>Basic</option>
+              <option>Champion</option>
+              <option>Signature</option>
+              <option>Token</option>
+            </select>
+          </label>
+          <label class="collection-extra-filter" data-filter-games="riftbound">
+            Variant
+            <select id="collectionVariantFilter">
+              <option value="">All</option>
+              <option>Standard</option>
+              <option>Foil</option>
+              <option>Promo</option>
+              <option>Alt Art</option>
+              <option>Signature</option>
+              <option>Showcase</option>
+              <option>Special</option>
+              <option>Ultimate</option>
+              <option>Rune</option>
+              <option>Overnumbered</option>
+              <option>Overnumbered Signed</option>
+            </select>
+          </label>
+          <label class="collection-extra-filter" data-filter-games="weiss riftbound hololive union-arena">
+            Rarity
+            <select id="collectionRarityFilter"></select>
+          </label>
+          <label class="collection-extra-filter" data-filter-games="riftbound">
+            Domains
+            <select id="collectionDomainFilter">
+              <option value="">All</option>
+              <option value="body">Body</option>
+              <option value="calm">Calm</option>
+              <option value="chaos">Chaos</option>
+              <option value="fury">Fury</option>
+              <option value="mind">Mind</option>
+              <option value="order">Order</option>
+            </select>
+          </label>
+          <div class="builder-filter-range collection-level-filter">
+            <span id="collectionLevelLabel">Level</span>
             <input id="collectionLevelMin" type="number" min="0" placeholder="Min">
             <input id="collectionLevelMax" type="number" min="0" placeholder="Max">
+            <div id="collectionBloomButtons" class="bloom-buttons" hidden>
+              <button type="button" data-collection-bloom="0">Debut</button>
+              <button type="button" data-collection-bloom="1">1st</button>
+              <button type="button" data-collection-bloom="2">2nd</button>
+              <button type="button" data-collection-bloom="3">Spot</button>
+            </div>
           </div>
-          <div class="builder-filter-range collection-weiss-filter">
-            <span>Cost</span>
+          <div class="builder-filter-range collection-cost-filter">
+            <span id="collectionCostLabel">Cost</span>
             <input id="collectionCostMin" type="number" min="0" placeholder="Min">
             <input id="collectionCostMax" type="number" min="0" placeholder="Max">
           </div>
-          <div class="builder-filter-range collection-weiss-filter">
+          <div class="builder-filter-range collection-power-filter">
             <span>Power</span>
             <input id="collectionPowerMin" type="number" min="0" step="500" placeholder="Min">
             <input id="collectionPowerMax" type="number" min="0" step="500" placeholder="Max">
           </div>
-          <div class="builder-filter-range collection-weiss-filter">
+          <div class="builder-filter-range collection-extra-filter" data-filter-games="hololive">
+            <span>HP</span>
+            <input id="collectionHpMin" type="number" min="0" step="10" placeholder="Min">
+            <input id="collectionHpMax" type="number" min="0" step="10" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-extra-filter" data-filter-games="hololive">
+            <span>Arts Dmg</span>
+            <input id="collectionArtsMin" type="number" min="0" step="10" placeholder="Min">
+            <input id="collectionArtsMax" type="number" min="0" step="10" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-extra-filter" data-filter-games="union-arena">
+            <span>Cost (AP)</span>
+            <input id="collectionApMin" type="number" min="0" placeholder="Min">
+            <input id="collectionApMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-extra-filter" data-filter-games="union-arena">
+            <span>Energy Gen.</span>
+            <input id="collectionEnergyGenMin" type="number" min="0" placeholder="Min">
+            <input id="collectionEnergyGenMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-extra-filter" data-filter-games="riftbound">
+            <span>Might</span>
+            <input id="collectionMightMin" type="number" min="0" placeholder="Min">
+            <input id="collectionMightMax" type="number" min="0" placeholder="Max">
+          </div>
+          <div class="builder-filter-range collection-soul-filter">
             <span>Soul</span>
             <input id="collectionSoulMin" type="number" min="0" placeholder="Min">
             <input id="collectionSoulMax" type="number" min="0" placeholder="Max">
           </div>
-          <label class="collection-weiss-filter">
+          <label class="collection-trigger-filter">
             Trigger
             <select id="collectionTriggerFilter">
               <option value="">All</option>
@@ -487,9 +640,13 @@
               <option value="bounce">Bounce</option>
             </select>
           </label>
-          <label class="builder-check collection-weiss-filter">
+          <label class="builder-check collection-alt-filter">
             <input id="collectionHideAltCards" type="checkbox">
             Hide alt cards
+          </label>
+          <label class="builder-check">
+            <input id="collectionOwnedOnly" type="checkbox">
+            Only owned
           </label>
           <button id="collectionClearFiltersBtn" type="button">Clear search conditions</button>
         </aside>

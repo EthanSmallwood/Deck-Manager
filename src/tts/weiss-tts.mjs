@@ -27,6 +27,9 @@ const WEISS_CARD_LUA = String.raw`data = {
     basePower = 0,
     powerDelta = 0,
     hasCounters = false,
+    baseHp = 0,
+    currentHp = 0,
+    hasHpCounter = false,
     canEquip = true,
     equipped = false,
     equippedCards = { slot_count = 0, slots = {} }
@@ -48,10 +51,16 @@ function onLoad(saved)
     if data.powerDelta == nil then data.powerDelta = 0 end
     if data.game == nil then data.game = "weiss" end
     if data.hasCounters == nil then data.hasCounters = false end
+    if data.baseHp == nil then data.baseHp = 0 end
+    if data.currentHp == nil then data.currentHp = data.baseHp or 0 end
+    if data.hasHpCounter == nil then data.hasHpCounter = false end
     if data.canEquip == nil then data.canEquip = true end
     if data.equippedCards == nil then data.equippedCards = { slot_count = 0, slots = {} } end
 
     self.addContextMenuItem("Reset Weiss counters", resetAllCounters)
+    self.addContextMenuItem("Reset HP", resetHp)
+    self.addContextMenuItem("+10 HP", hpUp)
+    self.addContextMenuItem("-10 HP", hpDown)
     self.addContextMenuItem("Unequip all", unequipAll)
     if data.canEquip then
         self.addContextMenuItem("Equip as marker", equipFromContext)
@@ -188,6 +197,15 @@ function updateCardUI()
 ]]
     end
 
+    if data.hasHpCounter then
+        local hp = tonumber(data.currentHp) or tonumber(data.baseHp) or 0
+        xml = xml .. [[
+<Panel position="0 -152 -100" width="260" height="82" scale="0.72 0.72 0.72" rotation="180 180 0" color="rgba(0,0,0,0.62)">
+    <Text position="0 0 2" color="white">HP ]] .. tostring(hp) .. [[</Text>
+</Panel>
+]]
+    end
+
     self.UI.setXml(xml)
 end
 
@@ -217,6 +235,35 @@ function addCounterButtons()
         color = {0.1, 0.6, 0.1, 0.95},
         font_color = {1, 1, 1, 1},
         tooltip = "+500 Power"
+    })
+end
+
+function addHpButtons()
+    self.createButton({
+        label = "-",
+        click_function = "hpDown",
+        function_owner = self,
+        position = {-0.58, 0.36, 1.52},
+        scale = {0.52, 0.52, 0.52},
+        width = 360,
+        height = 300,
+        font_size = 220,
+        color = {0.7, 0.1, 0.1, 0.95},
+        font_color = {1, 1, 1, 1},
+        tooltip = "-10 HP"
+    })
+    self.createButton({
+        label = "+",
+        click_function = "hpUp",
+        function_owner = self,
+        position = {0.58, 0.36, 1.52},
+        scale = {0.52, 0.52, 0.52},
+        width = 360,
+        height = 300,
+        font_size = 220,
+        color = {0.1, 0.6, 0.1, 0.95},
+        font_color = {1, 1, 1, 1},
+        tooltip = "+10 HP"
     })
 end
 
@@ -271,6 +318,10 @@ function rebuild()
         addCounterButtons()
     end
 
+    if data.hasHpCounter then
+        addHpButtons()
+    end
+
     addEquipButtons()
 end
 
@@ -286,6 +337,21 @@ end
 
 function resetAllCounters()
     data.powerDelta = 0
+    rebuild()
+end
+
+function hpUp()
+    data.currentHp = (tonumber(data.currentHp) or tonumber(data.baseHp) or 0) + 10
+    rebuild()
+end
+
+function hpDown()
+    data.currentHp = math.max(0, (tonumber(data.currentHp) or tonumber(data.baseHp) or 0) - 10)
+    rebuild()
+end
+
+function resetHp()
+    data.currentHp = tonumber(data.baseHp) or 0
     rebuild()
 end
 
@@ -938,6 +1004,8 @@ function makeHololiveDeckObject(name, cards, slotByKey, backUrl, position, tags 
 
 function makeHololiveCardCustom(card, cardId, deckKey, deckEntry, position = { posX: 0, posY: 1, posZ: 0 }) {
   const canEquip = isHololiveEquipable(card);
+  const baseHp = hololiveHpValue(card);
+  const hasHpCounter = isHololiveHpCounterCard(card);
 
   return {
     GUID: ttsGuid(),
@@ -951,6 +1019,8 @@ function makeHololiveCardCustom(card, cardId, deckKey, deckEntry, position = { p
       number: card.number,
       detailUrl: card.detailUrl,
       cardType: card.cardType || card.section || "",
+      hp: baseHp,
+      hasHpCounter,
       canEquip,
     }),
     AltLookAngle: { x: 0, y: 0, z: 0 },
@@ -978,6 +1048,9 @@ function makeHololiveCardCustom(card, cardId, deckKey, deckEntry, position = { p
       basePower: 0,
       powerDelta: 0,
       hasCounters: false,
+      baseHp,
+      currentHp: baseHp,
+      hasHpCounter,
       canEquip,
       equipped: false,
       equippedCards: { slot_count: 0, slots: {} },
@@ -1125,6 +1198,15 @@ function hololiveTtsTags(card) {
   return [];
 }
 
+function isHololiveHpCounterCard(card) {
+  const type = String(card.cardType || card.section || "").toLowerCase();
+  return type.includes("holomem") && hololiveHpValue(card) > 0;
+}
+
+function hololiveHpValue(card) {
+  return Math.max(0, Number(String(card.hp || "").replace(/[^\d.-]/g, "")) || 0);
+}
+
 function ttsTransform(position = {}) {
   return {
     posX: Number(position.posX ?? 0),
@@ -1246,6 +1328,8 @@ function makeWeissTtsCard(card, cardId, deckKey, deckEntry) {
 
 function makeHololiveTtsCard(card, cardId, deckKey, deckEntry) {
   const canEquip = isHololiveEquipable(card);
+  const baseHp = hololiveHpValue(card);
+  const hasHpCounter = isHololiveHpCounterCard(card);
 
   return {
     GUID: ttsGuid(),
@@ -1258,6 +1342,8 @@ function makeHololiveTtsCard(card, cardId, deckKey, deckEntry) {
       number: card.number,
       detailUrl: card.detailUrl,
       cardType: card.cardType || card.section || "",
+      hp: baseHp,
+      hasHpCounter,
       canEquip,
     }),
     AltLookAngle: { x: 0, y: 0, z: 0 },
@@ -1285,6 +1371,9 @@ function makeHololiveTtsCard(card, cardId, deckKey, deckEntry) {
       basePower: 0,
       powerDelta: 0,
       hasCounters: false,
+      baseHp,
+      currentHp: baseHp,
+      hasHpCounter,
       canEquip,
       equipped: false,
       equippedCards: { slot_count: 0, slots: {} },

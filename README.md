@@ -39,7 +39,8 @@ Start-Deckmanager.ps1
 - Render translated Union Arena JP card images from ExBurst and replace deck images from the `Translate` action.
 - Build/update local Weiss, Hololive, Riftbound, and Union Arena card databases from scraper scripts.
 - Build decks from searchable card databases, with scroll-to-load results.
-- Track owned cards in the collection page, including owned/unowned views and sorting by series, number, name, or quantity owned.
+- Track owned cards in the collection page, including game-aware filters, missing-card checks, and an `Only owned` toggle.
+- Import Riftbound owned quantities from a logged-in Piltover Archive collection session.
 - Show missing/needs-buying counts for saved decks.
 - Export supported decks as Tabletop Simulator saved object JSON.
 
@@ -57,13 +58,32 @@ Supported sources include:
 
 For Union Arena JP decks, the `Translate` button uses ExBurst's rendered translated card view for each unique card and caches the PNG output in `outputs/ua-rendered/`.
 
+## Collections
+
+The Collection page supports Weiss Schwarz, Hololive OCG, Riftbound, and Union Arena EN/JP card pools.
+
+Filters are game-aware:
+
+- Weiss Schwarz: card type, color, level, cost, power, soul, trigger, rarity, hide alt cards, and only owned.
+- Hololive OCG: card type, color, rarity, bloom, HP, arts damage, hide alt cards, and only owned. Bloom also has quick buttons for `Debut`, `1st`, `2nd`, and `Spot`.
+- Riftbound: card type, supertype, variant, rarity, domains, energy, power, might, hide alt/overnumbered, and only owned.
+- Union Arena: card type, color, rarity, cost, cost (AP), energy generation, power, hide alt cards, and only owned.
+
+Riftbound collections can be imported from Piltover Archive from `Settings` -> `Card Databases` -> `Import Piltover Collection`.
+
+Before importing, log into [Piltover Archive collection](https://piltoverarchive.com/collection) in your browser and copy a fresh `Authorization: Bearer ...` header from a collection API request in DevTools Network. Deckmanager uses that header once for the import and does not save it to settings, disk, logs, or the collection file.
+
 ## Tabletop Simulator Export
 
 The `TTS` button exports the selected saved deck.
 
 Weiss Schwarz exports use generated local card sheets in `outputs/tts/`. Character cards include a simple power counter in TTS.
 
-Hololive OCG exports use individual `CardCustom` entries shaped like existing workshop Hololive objects. Oshi, Cheer, and holomem cards are tagged for matching table snap zones. Support Mascot, Fan, and Tool cards can be equipped as markers from the right-click menu.
+Hololive OCG exports use individual `CardCustom` entries shaped like existing workshop Hololive objects. Oshi, Cheer, and holomem cards are tagged for matching table snap zones. Support Mascot, Fan, and Tool cards can be equipped as markers from the right-click menu. Holomem cards include HP counter support for EN and JP cards when HP data is available.
+
+Riftbound exports separate legend, champion, main deck, runes, battlefields, and optional sideboard. The chosen champion is exported separately instead of being shuffled into the main deck.
+
+Union Arena exports separate the main deck from action point cards. JP exports can use translated rendered images when they exist and fall back to raw JP images otherwise.
 
 Keep Deckmanager running while Tabletop Simulator imports any generated local URLs. After importing, upload custom assets to Steam Cloud inside TTS and save the object again.
 
@@ -73,8 +93,10 @@ Open `Settings` in the app to:
 
 - Build the Weiss card database.
 - Build the Hololive card database.
+- Build the Hololive JP card database.
 - Build the Riftbound card database.
 - Build the Union Arena EN and JP card databases.
+- Import a Riftbound collection from Piltover Archive.
 - Clear generated TTS card and sheet image caches.
 - Choose the folder where exported TTS saved object JSON files are written.
 
@@ -96,6 +118,7 @@ Runtime data is stored locally:
 - `data/cards/riftbound-cards.json` - generated Riftbound card database
 - `data/cards/union-arena-cards.json` - generated Union Arena EN card database
 - `data/cards/union-arena-jp-cards.json` - generated Union Arena JP card database
+- `data/cards/hololive-jp-cards.json` - generated Hololive JP card database
 - `outputs/` - generated TTS exports/assets
 
 The clear cache setting removes generated image folders under `outputs/tts/` while leaving saved deck JSON and app data alone.

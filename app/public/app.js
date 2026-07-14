@@ -33,34 +33,63 @@ const state = {
 
 const SEARCH_PAGE_SIZE = 120;
 
+const HOLOLIVE_CARD_TYPES = [
+  ["", "All"],
+  ["holomem", "Holomem"],
+  ["Buzz holomem", "Buzz Holomem"],
+  ["Support", "Support"],
+  ["Support・Item", "Item"],
+  ["Support・Item・LIMITED", "LIMITED"],
+  ["Support・Event", "Event"],
+  ["Support・Tool", "Tool"],
+  ["Support・Mascot", "Mascot"],
+  ["Support・Fan", "Fan"],
+];
+
+const HOLOLIVE_RARITIES = ["RR", "R", "U", "C", "OSR", "OC", "SEC", "OUR", "UR", "SY", "SR", "S", "Y"]
+  .map((rarity) => [rarity, rarity]);
+
+const WEISS_RARITIES = ["C", "U", "R", "RR", "SR", "RRR", "SP", "SSP", "OFR", "SEC", "PR", "TD", "CR", "CC"]
+  .map((rarity) => [rarity, rarity]);
+
+const UNION_ARENA_RARITIES = ["C", "C★", "C★★", "U", "U★", "U★★", "U★★★", "R", "R★", "R★★", "SR", "SR★", "SR★★", "SR★★★", "UR", "SP", "OBC", "PR", "PcC", "PcR", "PcSR"]
+  .map((rarity) => [rarity, rarity]);
+
 const BUILDER_FILTER_OPTIONS = {
   "Weiss Schwarz (EN)": {
     types: [["", "All"], ["Character", "Character"], ["Event", "Event"], ["Climax", "Climax"]],
     colors: [["", "All"], ["yellow", "Yellow"], ["green", "Green"], ["red", "Red"], ["blue", "Blue"]],
+    rarities: [["", "All"], ...WEISS_RARITIES],
   },
   "Weiss Schwarz (JP)": {
     types: [["", "All"], ["Character", "Character"], ["Event", "Event"], ["Climax", "Climax"]],
     colors: [["", "All"], ["yellow", "Yellow"], ["green", "Green"], ["red", "Red"], ["blue", "Blue"]],
+    rarities: [["", "All"], ...WEISS_RARITIES],
   },
   "Hololive OCG (EN)": {
-    types: [["", "All"], ["Oshi", "Oshi"], ["holomem", "Holomem"], ["Support", "Support"], ["Cheer", "Cheer"]],
+    types: HOLOLIVE_CARD_TYPES,
     colors: [["", "All"], ["Y", "Yellow"], ["G", "Green"], ["R", "Red"], ["B", "Blue"], ["W", "White"], ["P", "Purple"]],
+    rarities: [["", "All"], ...HOLOLIVE_RARITIES],
   },
   "Hololive OCG (JP)": {
-    types: [["", "All"], ["Oshi", "Oshi"], ["holomem", "Holomem"], ["Support", "Support"], ["Cheer", "Cheer"]],
+    types: HOLOLIVE_CARD_TYPES,
     colors: [["", "All"], ["Y", "Yellow"], ["G", "Green"], ["R", "Red"], ["B", "Blue"], ["W", "White"], ["P", "Purple"]],
+    rarities: [["", "All"], ...HOLOLIVE_RARITIES],
   },
   "Riftbound": {
     types: [["", "All"], ["Unit", "Unit"], ["Spell", "Spell"], ["Rune", "Rune"], ["Gear", "Gear"], ["Legend", "Legend"], ["Battlefield", "Battlefield"], ["Card", "Card"]],
     colors: [["", "All"], ["body", "Body"], ["calm", "Calm"], ["chaos", "Chaos"], ["fury", "Fury"], ["mind", "Mind"], ["order", "Order"]],
+    rarities: [["", "All"], ["Common", "Common"], ["Uncommon", "Uncommon"], ["Rare", "Rare"], ["Epic", "Epic"], ["Showcase", "Showcase"], ["Special", "Special"], ["Ultimate", "Ultimate"]],
   },
   "Union Arena (EN)": {
-    types: [["", "All"], ["Character", "Character"], ["Site", "Site"], ["Event", "Event"]],
+    types: [["", "All"], ["Character", "Character"], ["Site", "Site"], ["Field", "Field"], ["Event", "Event"], ["AP", "AP"]],
     colors: [["", "All"], ["Yellow", "Yellow"], ["Purple", "Purple"], ["Red", "Red"], ["Blue", "Blue"], ["Green", "Green"], ["Rainbow", "Rainbow"]],
+    rarities: [["", "All"], ...UNION_ARENA_RARITIES],
   },
   "Union Arena (JP)": {
-    types: [["", "All"], ["Character", "Character"], ["Site", "Site"], ["Event", "Event"]],
+    types: [["", "All"], ["Character", "Character"], ["Site", "Site"], ["Field", "Field"], ["Event", "Event"], ["AP", "AP"]],
     colors: [["", "All"], ["Yellow", "Yellow"], ["Purple", "Purple"], ["Red", "Red"], ["Blue", "Blue"], ["Green", "Green"], ["Rainbow", "Rainbow"]],
+    rarities: [["", "All"], ...UNION_ARENA_RARITIES],
   },
 };
 
@@ -133,17 +162,34 @@ const el = {
   builderSearchBtn: document.querySelector("#builderSearchBtn"),
   builderTypeFilter: document.querySelector("#builderTypeFilter"),
   builderColorFilter: document.querySelector("#builderColorFilter"),
+  builderSupertypeFilter: document.querySelector("#builderSupertypeFilter"),
+  builderVariantFilter: document.querySelector("#builderVariantFilter"),
+  builderRarityFilter: document.querySelector("#builderRarityFilter"),
+  builderDomainFilter: document.querySelector("#builderDomainFilter"),
   builderLevelLabel: document.querySelector("#builderLevelLabel"),
   builderLevelMin: document.querySelector("#builderLevelMin"),
   builderLevelMax: document.querySelector("#builderLevelMax"),
+  builderBloomButtons: document.querySelector("#builderBloomButtons"),
+  builderCostLabel: document.querySelector("#builderCostLabel"),
   builderCostMin: document.querySelector("#builderCostMin"),
   builderCostMax: document.querySelector("#builderCostMax"),
   builderPowerMin: document.querySelector("#builderPowerMin"),
   builderPowerMax: document.querySelector("#builderPowerMax"),
+  builderHpMin: document.querySelector("#builderHpMin"),
+  builderHpMax: document.querySelector("#builderHpMax"),
+  builderArtsMin: document.querySelector("#builderArtsMin"),
+  builderArtsMax: document.querySelector("#builderArtsMax"),
+  builderApMin: document.querySelector("#builderApMin"),
+  builderApMax: document.querySelector("#builderApMax"),
+  builderEnergyGenMin: document.querySelector("#builderEnergyGenMin"),
+  builderEnergyGenMax: document.querySelector("#builderEnergyGenMax"),
+  builderMightMin: document.querySelector("#builderMightMin"),
+  builderMightMax: document.querySelector("#builderMightMax"),
   builderSoulMin: document.querySelector("#builderSoulMin"),
   builderSoulMax: document.querySelector("#builderSoulMax"),
   builderTriggerFilter: document.querySelector("#builderTriggerFilter"),
   builderHideAltCards: document.querySelector("#builderHideAltCards"),
+  builderOwnedOnly: document.querySelector("#builderOwnedOnly"),
   builderClearFiltersBtn: document.querySelector("#builderClearFiltersBtn"),
   builderResultCount: document.querySelector("#builderResultCount"),
   builderDeckCount: document.querySelector("#builderDeckCount"),
@@ -163,18 +209,37 @@ const el = {
   collectionSortInput: document.querySelector("#collectionSortInput"),
   collectionSearchInput: document.querySelector("#collectionSearchInput"),
   collectionSearchBtn: document.querySelector("#collectionSearchBtn"),
+  importPiltoverCollectionBtn: document.querySelector("#importPiltoverCollectionBtn"),
   collectionTypeFilter: document.querySelector("#collectionTypeFilter"),
   collectionColorFilter: document.querySelector("#collectionColorFilter"),
+  collectionSupertypeFilter: document.querySelector("#collectionSupertypeFilter"),
+  collectionVariantFilter: document.querySelector("#collectionVariantFilter"),
+  collectionRarityFilter: document.querySelector("#collectionRarityFilter"),
+  collectionDomainFilter: document.querySelector("#collectionDomainFilter"),
+  collectionLevelLabel: document.querySelector("#collectionLevelLabel"),
   collectionLevelMin: document.querySelector("#collectionLevelMin"),
   collectionLevelMax: document.querySelector("#collectionLevelMax"),
+  collectionBloomButtons: document.querySelector("#collectionBloomButtons"),
+  collectionCostLabel: document.querySelector("#collectionCostLabel"),
   collectionCostMin: document.querySelector("#collectionCostMin"),
   collectionCostMax: document.querySelector("#collectionCostMax"),
   collectionPowerMin: document.querySelector("#collectionPowerMin"),
   collectionPowerMax: document.querySelector("#collectionPowerMax"),
+  collectionHpMin: document.querySelector("#collectionHpMin"),
+  collectionHpMax: document.querySelector("#collectionHpMax"),
+  collectionArtsMin: document.querySelector("#collectionArtsMin"),
+  collectionArtsMax: document.querySelector("#collectionArtsMax"),
+  collectionApMin: document.querySelector("#collectionApMin"),
+  collectionApMax: document.querySelector("#collectionApMax"),
+  collectionEnergyGenMin: document.querySelector("#collectionEnergyGenMin"),
+  collectionEnergyGenMax: document.querySelector("#collectionEnergyGenMax"),
+  collectionMightMin: document.querySelector("#collectionMightMin"),
+  collectionMightMax: document.querySelector("#collectionMightMax"),
   collectionSoulMin: document.querySelector("#collectionSoulMin"),
   collectionSoulMax: document.querySelector("#collectionSoulMax"),
   collectionTriggerFilter: document.querySelector("#collectionTriggerFilter"),
   collectionHideAltCards: document.querySelector("#collectionHideAltCards"),
+  collectionOwnedOnly: document.querySelector("#collectionOwnedOnly"),
   collectionClearFiltersBtn: document.querySelector("#collectionClearFiltersBtn"),
   collectionResultCount: document.querySelector("#collectionResultCount"),
   collectionGrid: document.querySelector("#collectionGrid"),
@@ -218,6 +283,9 @@ el.builderSeriesSelect.addEventListener("change", searchBuilderCards);
 el.builderSeriesButton.addEventListener("click", toggleBuilderSeriesMenu);
 el.builderSeriesMenu.addEventListener("click", selectBuilderSeriesFromMenu);
 for (const input of builderFilterInputs()) input.addEventListener("change", searchBuilderCards);
+el.builderLevelMin.addEventListener("change", () => syncBloomButtons("builder"));
+el.builderLevelMax.addEventListener("change", () => syncBloomButtons("builder"));
+el.builderBloomButtons.addEventListener("click", selectBuilderBloomFilter);
 el.builderClearFiltersBtn.addEventListener("click", clearBuilderFilters);
 el.builderResults.addEventListener("scroll", maybeLoadMoreBuilderCards);
 el.builderClearBtn.addEventListener("click", clearBuilderDeck);
@@ -227,12 +295,16 @@ el.collectionSearchBtn.addEventListener("click", searchCollectionCards);
 el.collectionSearchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") searchCollectionCards();
 });
+el.importPiltoverCollectionBtn.addEventListener("click", importPiltoverCollection);
 el.collectionGameFilter.addEventListener("change", switchCollectionGame);
 el.collectionViewFilter.addEventListener("change", searchCollectionCards);
 el.collectionSortInput.addEventListener("change", searchCollectionCards);
 el.collectionSeriesButton.addEventListener("click", toggleCollectionSeriesMenu);
 el.collectionSeriesMenu.addEventListener("click", selectCollectionSeriesFromMenu);
 for (const input of collectionFilterInputs()) input.addEventListener("change", searchCollectionCards);
+el.collectionLevelMin.addEventListener("change", () => syncBloomButtons("collection"));
+el.collectionLevelMax.addEventListener("change", () => syncBloomButtons("collection"));
+el.collectionBloomButtons.addEventListener("click", selectCollectionBloomFilter);
 el.collectionClearFiltersBtn.addEventListener("click", clearCollectionFilters);
 el.collectionGrid.addEventListener("scroll", maybeLoadMoreCollectionCards);
 el.cardModal.addEventListener("click", (event) => {
@@ -1753,9 +1825,11 @@ async function switchBuilderGame() {
 }
 
 function syncBuilderGameUi() {
-  const isHolo = isHololiveGame(el.builderGameInput.value);
-  const isRiftbound = el.builderGameInput.value === "Riftbound";
-  const isUnionArena = isUnionArenaGame(el.builderGameInput.value);
+  const game = appGame(el.builderGameInput.value);
+  const filterGame = filterGameKey(game);
+  const isHolo = isHololiveGame(game);
+  const isRiftbound = game === "Riftbound";
+  const isUnionArena = isUnionArenaGame(game);
   el.builderHeading.textContent = isHolo ? "Hololive Deck Builder" : isRiftbound ? "Riftbound Deck Builder" : isUnionArena ? "Union Arena Deck Builder" : "Weiss Deck Builder";
   el.builderSubheading.textContent = isHolo
     ? "Choose a card set, then build Oshi / Main / Cheer."
@@ -1765,8 +1839,67 @@ function syncBuilderGameUi() {
         ? "Choose a series, search cards, and build a 50-card Union Arena deck."
     : "Neo-Standard: choose a series, build to 50 cards, max 8 climaxes, max 4 copies.";
   el.builderLevelLabel.textContent = isHolo ? "Bloom" : isRiftbound ? "Energy" : isUnionArena ? "Energy" : "Level";
-  for (const item of document.querySelectorAll(".builder-weiss-filter")) item.hidden = isHolo || isRiftbound;
+  el.builderCostLabel.textContent = "Cost";
+  el.builderLevelMin.max = isRiftbound ? "12" : "3";
+  el.builderLevelMax.max = isRiftbound ? "12" : "3";
+  el.builderPowerMin.step = isRiftbound ? "1" : "500";
+  el.builderPowerMax.step = isRiftbound ? "1" : "500";
+  el.builderPowerMin.max = isRiftbound ? "4" : "";
+  el.builderPowerMax.max = isRiftbound ? "4" : "";
+  setFilterHidden(".builder-color-filter", isRiftbound);
+  setFilterElementHidden(el.builderBloomButtons, !isHolo);
+  setFilterHidden(".builder-level-filter", isUnionArena);
+  setFilterHidden(".builder-cost-filter", isHolo || isRiftbound);
+  setFilterHidden(".builder-power-filter", isHolo);
+  setFilterHidden(".builder-soul-filter, .builder-trigger-filter", isHolo || isRiftbound || isUnionArena);
+  for (const item of document.querySelectorAll(".builder-extra-filter")) {
+    setFilterElementHidden(item, !String(item.dataset.filterGames || "").split(/\s+/).includes(filterGame));
+  }
+  setFilterHidden(".builder-alt-filter", false);
   syncBuilderFilterOptions();
+  syncBloomButtons("builder");
+}
+
+function setFilterHidden(selector, hidden) {
+  for (const item of document.querySelectorAll(selector)) setFilterElementHidden(item, hidden);
+}
+
+function setFilterElementHidden(item, hidden) {
+  item.hidden = hidden;
+  item.classList.toggle("filter-hidden", hidden);
+}
+
+function selectBuilderBloomFilter(event) {
+  const button = event.target.closest("[data-builder-bloom]");
+  if (!button) return;
+  setBloomFilter("builder", button.dataset.builderBloom);
+  searchBuilderCards();
+}
+
+function selectCollectionBloomFilter(event) {
+  const button = event.target.closest("[data-collection-bloom]");
+  if (!button) return;
+  setBloomFilter("collection", button.dataset.collectionBloom);
+  searchCollectionCards();
+}
+
+function setBloomFilter(kind, value) {
+  const min = kind === "builder" ? el.builderLevelMin : el.collectionLevelMin;
+  const max = kind === "builder" ? el.builderLevelMax : el.collectionLevelMax;
+  min.value = value;
+  max.value = value;
+  syncBloomButtons(kind);
+}
+
+function syncBloomButtons(kind) {
+  const min = kind === "builder" ? el.builderLevelMin : el.collectionLevelMin;
+  const max = kind === "builder" ? el.builderLevelMax : el.collectionLevelMax;
+  const wrap = kind === "builder" ? el.builderBloomButtons : el.collectionBloomButtons;
+  const selected = min.value && min.value === max.value ? min.value : "";
+  for (const button of wrap.querySelectorAll("button")) {
+    const value = kind === "builder" ? button.dataset.builderBloom : button.dataset.collectionBloom;
+    button.classList.toggle("active", value === selected);
+  }
 }
 
 function syncBuilderFilterOptions() {
@@ -1774,6 +1907,14 @@ function syncBuilderFilterOptions() {
   const options = BUILDER_FILTER_OPTIONS[game];
   replaceSelectOptions(el.builderTypeFilter, options.types);
   replaceSelectOptions(el.builderColorFilter, options.colors);
+  replaceSelectOptions(el.builderRarityFilter, options.rarities || [["", "All"]]);
+}
+
+function filterGameKey(game) {
+  if (isHololiveGame(game)) return "hololive";
+  if (game === "Riftbound") return "riftbound";
+  if (isUnionArenaGame(game)) return "union-arena";
+  return "weiss";
 }
 
 function replaceSelectOptions(select, options) {
@@ -1924,7 +2065,7 @@ async function searchCollectionCards({ append = false } = {}) {
       game: el.collectionGameFilter.value,
       q: el.collectionSearchInput.value.trim(),
       title: el.collectionSeriesSelect.value,
-      view: el.collectionViewFilter.value,
+      view: el.collectionOwnedOnly.checked ? "owned" : el.collectionViewFilter.value,
       sort: el.collectionSortInput.value,
       offset: String(offset),
       limit: String(SEARCH_PAGE_SIZE),
@@ -1949,6 +2090,35 @@ function maybeLoadMoreCollectionCards() {
   searchCollectionCards({ append: true });
 }
 
+async function importPiltoverCollection() {
+  const ok = window.confirm(
+    "Make sure you are logged into Piltover Archive in your browser first.\n\n" +
+    "Open https://piltoverarchive.com/collection, then copy the Authorization: Bearer header from a Piltover collection API request in DevTools Network.\n\n" +
+    "Deckmanager sends that header once for this import. It is not saved to settings, disk, or the collection file.",
+  );
+  if (!ok) return;
+
+  const authorization = window.prompt("Paste the Piltover Authorization header or Bearer token. It will not be saved:");
+  if (!authorization) {
+    window.open("https://piltoverarchive.com/collection", "_blank", "noopener");
+    el.settingsLog.textContent = "Opened Piltover. Log in, copy the Authorization header from DevTools Network, then run import again.";
+    return;
+  }
+
+  setBusy(el.importPiltoverCollectionBtn, true, "Importing...");
+  el.settingsLog.textContent = "Importing Piltover collection. Authorization header is used once and not saved...";
+  try {
+    const result = await api("/api/collection/riftbound/piltover", { authorization });
+    state.collection = result.collection || state.collection;
+    el.settingsLog.textContent = `Imported ${Number(result.importedCards || 0).toLocaleString()} cards across ${Number(result.importedUnique || 0).toLocaleString()} Riftbound entries${result.unmatchedCount ? `; ${result.unmatchedCount} unmatched` : ""}.\n\nAuthorization header was not saved.`;
+    if (!el.collectionModal.hidden && el.collectionGameFilter.value === "Riftbound") await searchCollectionCards();
+  } catch (error) {
+    el.settingsLog.textContent = error.message;
+  } finally {
+    setBusy(el.importPiltoverCollectionBtn, false, "Import Piltover Collection");
+  }
+}
+
 async function switchCollectionGame() {
   el.collectionGameFilter.value = appGame(el.collectionGameFilter.value);
   await loadGameSets(el.collectionGameFilter.value);
@@ -1961,46 +2131,103 @@ async function switchCollectionGame() {
 }
 
 function syncCollectionFilterVisibility() {
-  const supportsAdvancedFilters = isWeissGame(el.collectionGameFilter.value) || isUnionArenaGame(el.collectionGameFilter.value);
-  for (const item of document.querySelectorAll(".collection-weiss-filter")) item.hidden = !supportsAdvancedFilters;
+  const game = appGame(el.collectionGameFilter.value);
+  const filterGame = filterGameKey(game);
+  const isHolo = isHololiveGame(game);
+  const isRiftbound = game === "Riftbound";
+  const isUnionArena = isUnionArenaGame(game);
+  el.collectionLevelLabel.textContent = isHolo ? "Bloom" : isRiftbound ? "Energy" : isUnionArena ? "Energy" : "Level";
+  el.collectionCostLabel.textContent = "Cost";
+  el.collectionLevelMin.max = isRiftbound ? "12" : "3";
+  el.collectionLevelMax.max = isRiftbound ? "12" : "3";
+  el.collectionPowerMin.step = isRiftbound ? "1" : "500";
+  el.collectionPowerMax.step = isRiftbound ? "1" : "500";
+  el.collectionPowerMin.max = isRiftbound ? "4" : "";
+  el.collectionPowerMax.max = isRiftbound ? "4" : "";
+  setFilterHidden(".collection-color-filter", isRiftbound);
+  setFilterElementHidden(el.collectionBloomButtons, !isHolo);
+  setFilterHidden(".collection-level-filter", isUnionArena);
+  setFilterHidden(".collection-cost-filter", isHolo || isRiftbound);
+  setFilterHidden(".collection-power-filter", isHolo);
+  setFilterHidden(".collection-soul-filter, .collection-trigger-filter", isHolo || isRiftbound || isUnionArena);
+  for (const item of document.querySelectorAll(".collection-extra-filter")) {
+    setFilterElementHidden(item, !String(item.dataset.filterGames || "").split(/\s+/).includes(filterGame));
+  }
+  setFilterHidden(".collection-alt-filter", false);
+  syncBloomButtons("collection");
 }
 
 function syncCollectionFilterOptions() {
   const options = BUILDER_FILTER_OPTIONS[appGame(el.collectionGameFilter.value)];
   replaceSelectOptions(el.collectionTypeFilter, options.types);
   replaceSelectOptions(el.collectionColorFilter, options.colors);
+  replaceSelectOptions(el.collectionRarityFilter, options.rarities || [["", "All"]]);
 }
 
 function collectionFilterInputs() {
   return [
     el.collectionTypeFilter,
     el.collectionColorFilter,
+    el.collectionSupertypeFilter,
+    el.collectionVariantFilter,
+    el.collectionRarityFilter,
+    el.collectionDomainFilter,
     el.collectionLevelMin,
     el.collectionLevelMax,
     el.collectionCostMin,
     el.collectionCostMax,
     el.collectionPowerMin,
     el.collectionPowerMax,
+    el.collectionHpMin,
+    el.collectionHpMax,
+    el.collectionArtsMin,
+    el.collectionArtsMax,
+    el.collectionApMin,
+    el.collectionApMax,
+    el.collectionEnergyGenMin,
+    el.collectionEnergyGenMax,
+    el.collectionMightMin,
+    el.collectionMightMax,
     el.collectionSoulMin,
     el.collectionSoulMax,
     el.collectionTriggerFilter,
     el.collectionHideAltCards,
+    el.collectionOwnedOnly,
   ];
 }
 
 function appendCollectionFilterParams(params) {
+  const game = appGame(el.collectionGameFilter.value);
+  const isHolo = isHololiveGame(game);
+  const isRiftbound = game === "Riftbound";
+  const isUnionArena = isUnionArenaGame(game);
+  const isWeiss = isWeissGame(game);
   const values = {
     type: el.collectionTypeFilter.value,
-    color: el.collectionColorFilter.value,
-    levelMin: el.collectionLevelMin.value,
-    levelMax: el.collectionLevelMax.value,
-    costMin: el.collectionCostMin.value,
-    costMax: el.collectionCostMax.value,
-    powerMin: el.collectionPowerMin.value,
-    powerMax: el.collectionPowerMax.value,
-    soulMin: el.collectionSoulMin.value,
-    soulMax: el.collectionSoulMax.value,
-    trigger: el.collectionTriggerFilter.value,
+    color: isRiftbound ? "" : el.collectionColorFilter.value,
+    supertype: isRiftbound ? el.collectionSupertypeFilter.value : "",
+    variant: isRiftbound ? el.collectionVariantFilter.value : "",
+    rarity: el.collectionRarityFilter.value,
+    domain: isRiftbound ? el.collectionDomainFilter.value : "",
+    levelMin: isUnionArena ? "" : el.collectionLevelMin.value,
+    levelMax: isUnionArena ? "" : el.collectionLevelMax.value,
+    costMin: isWeiss || isUnionArena ? el.collectionCostMin.value : "",
+    costMax: isWeiss || isUnionArena ? el.collectionCostMax.value : "",
+    powerMin: isHolo ? "" : el.collectionPowerMin.value,
+    powerMax: isHolo ? "" : el.collectionPowerMax.value,
+    hpMin: isHolo ? el.collectionHpMin.value : "",
+    hpMax: isHolo ? el.collectionHpMax.value : "",
+    artsMin: isHolo ? el.collectionArtsMin.value : "",
+    artsMax: isHolo ? el.collectionArtsMax.value : "",
+    apMin: isUnionArena ? el.collectionApMin.value : "",
+    apMax: isUnionArena ? el.collectionApMax.value : "",
+    energyGenMin: isUnionArena ? el.collectionEnergyGenMin.value : "",
+    energyGenMax: isUnionArena ? el.collectionEnergyGenMax.value : "",
+    mightMin: isRiftbound ? el.collectionMightMin.value : "",
+    mightMax: isRiftbound ? el.collectionMightMax.value : "",
+    soulMin: isWeiss ? el.collectionSoulMin.value : "",
+    soulMax: isWeiss ? el.collectionSoulMax.value : "",
+    trigger: isWeiss ? el.collectionTriggerFilter.value : "",
     hideAlt: el.collectionHideAltCards.checked ? "1" : "",
   };
 
@@ -2015,6 +2242,7 @@ function clearCollectionFilters(search = true) {
     else input.value = "";
   }
   el.collectionSortInput.value = "series";
+  syncBloomButtons("collection");
   if (search) searchCollectionCards();
 }
 
@@ -2099,34 +2327,68 @@ function builderFilterInputs() {
   return [
     el.builderTypeFilter,
     el.builderColorFilter,
+    el.builderSupertypeFilter,
+    el.builderVariantFilter,
+    el.builderRarityFilter,
+    el.builderDomainFilter,
     el.builderLevelMin,
     el.builderLevelMax,
     el.builderCostMin,
     el.builderCostMax,
     el.builderPowerMin,
     el.builderPowerMax,
+    el.builderHpMin,
+    el.builderHpMax,
+    el.builderArtsMin,
+    el.builderArtsMax,
+    el.builderApMin,
+    el.builderApMax,
+    el.builderEnergyGenMin,
+    el.builderEnergyGenMax,
+    el.builderMightMin,
+    el.builderMightMax,
     el.builderSoulMin,
     el.builderSoulMax,
     el.builderTriggerFilter,
     el.builderHideAltCards,
+    el.builderOwnedOnly,
   ];
 }
 
 function appendBuilderFilterParams(params) {
-  const isHolo = isHololiveGame(el.builderGameInput.value);
+  const game = appGame(el.builderGameInput.value);
+  const isHolo = isHololiveGame(game);
+  const isRiftbound = game === "Riftbound";
+  const isUnionArena = isUnionArenaGame(game);
+  const isWeiss = isWeissGame(game);
+  if (el.builderOwnedOnly.checked) params.set("view", "owned");
   const values = {
     type: el.builderTypeFilter.value,
-    color: el.builderColorFilter.value,
-    levelMin: el.builderLevelMin.value,
-    levelMax: el.builderLevelMax.value,
-    costMin: isHolo ? "" : el.builderCostMin.value,
-    costMax: isHolo ? "" : el.builderCostMax.value,
+    color: isRiftbound ? "" : el.builderColorFilter.value,
+    supertype: isRiftbound ? el.builderSupertypeFilter.value : "",
+    variant: isRiftbound ? el.builderVariantFilter.value : "",
+    rarity: el.builderRarityFilter.value,
+    domain: isRiftbound ? el.builderDomainFilter.value : "",
+    levelMin: isUnionArena ? "" : el.builderLevelMin.value,
+    levelMax: isUnionArena ? "" : el.builderLevelMax.value,
+    costMin: isWeiss || isUnionArena ? el.builderCostMin.value : "",
+    costMax: isWeiss || isUnionArena ? el.builderCostMax.value : "",
     powerMin: isHolo ? "" : el.builderPowerMin.value,
     powerMax: isHolo ? "" : el.builderPowerMax.value,
-    soulMin: isHolo ? "" : el.builderSoulMin.value,
-    soulMax: isHolo ? "" : el.builderSoulMax.value,
-    trigger: isHolo ? "" : el.builderTriggerFilter.value,
-    hideAlt: !isHolo && el.builderHideAltCards.checked ? "1" : "",
+    hpMin: isHolo ? el.builderHpMin.value : "",
+    hpMax: isHolo ? el.builderHpMax.value : "",
+    artsMin: isHolo ? el.builderArtsMin.value : "",
+    artsMax: isHolo ? el.builderArtsMax.value : "",
+    apMin: isUnionArena ? el.builderApMin.value : "",
+    apMax: isUnionArena ? el.builderApMax.value : "",
+    energyGenMin: isUnionArena ? el.builderEnergyGenMin.value : "",
+    energyGenMax: isUnionArena ? el.builderEnergyGenMax.value : "",
+    mightMin: isRiftbound ? el.builderMightMin.value : "",
+    mightMax: isRiftbound ? el.builderMightMax.value : "",
+    soulMin: isWeiss ? el.builderSoulMin.value : "",
+    soulMax: isWeiss ? el.builderSoulMax.value : "",
+    trigger: isWeiss ? el.builderTriggerFilter.value : "",
+    hideAlt: el.builderHideAltCards.checked ? "1" : "",
   };
 
   for (const [key, value] of Object.entries(values)) {
@@ -2139,6 +2401,7 @@ function clearBuilderFilters(search = true) {
     if (input.type === "checkbox") input.checked = false;
     else input.value = "";
   }
+  syncBloomButtons("builder");
   if (search) searchBuilderCards();
 }
 
@@ -2408,7 +2671,7 @@ function hasHololiveOshi(cards) {
 }
 
 function primeHololiveOshiFilter() {
-  if (isHololiveGame(el.builderGameInput.value) && !hasHololiveOshi(state.builderCards)) {
+  if (isHololiveGame(el.builderGameInput.value) && !hasHololiveOshi(state.builderCards) && [...el.builderTypeFilter.options].some((option) => option.value === "Oshi")) {
     el.builderTypeFilter.value = "Oshi";
   }
 }

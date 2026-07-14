@@ -4,7 +4,7 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmS
 import { createServer } from "node:http";
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { loadCollection, setOwnedQuantity } from "../src/collectionstore.mjs";
+import { loadCollection, setOwnedQuantities, setOwnedQuantity } from "../src/collectionstore.mjs";
 import { deleteDeck, loadDecks, upsertDeck } from "../src/deckstore.mjs";
 import { detectDecklogGame, fetchDecklogPayload } from "../src/games/decklog.mjs";
 import { clearWeissDatabaseCache, importDecklogDeck, importEncoreDeck, loadWeissDatabase, resolveWeissDeck } from "../src/games/weiss.mjs";
@@ -95,6 +95,13 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/collection/riftbound/piltover") {
+      const body = await readJsonBody(request);
+      const result = await importPiltoverCollection(body.authorization || body.token || "");
+      sendJson(response, result.ok ? 200 : 400, result);
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/collection/union-arena/sets") {
       sendJson(response, 200, { ok: true, sets: listUnionArenaCardSets(unionArenaLocaleFromUrl(url)) });
       return;
@@ -165,6 +172,7 @@ const server = createServer(async (request, response) => {
       const filters = {
         type: String(url.searchParams.get("type") || "").trim().toLowerCase(),
         color: String(url.searchParams.get("color") || "").trim().toLowerCase(),
+        rarity: String(url.searchParams.get("rarity") || "").trim().toLowerCase(),
         trigger: String(url.searchParams.get("trigger") || "").trim().toLowerCase(),
         levelMin: numberParam(url, "levelMin"),
         levelMax: numberParam(url, "levelMax"),
@@ -1022,6 +1030,7 @@ function pageCards(cards, url, defaultLimit = 120) {
 function matchesWeissFilters(card, filters) {
   if (filters.type && String(card.cardType || "").toLowerCase() !== filters.type) return false;
   if (filters.color && String(card.color || "").toLowerCase() !== filters.color) return false;
+  if (filters.rarity && String(card.rarity || "").toLowerCase() !== filters.rarity) return false;
   if (filters.trigger && !String(card.trigger || "").toLowerCase().includes(filters.trigger)) return false;
   if (filters.hideAlt && isAltWeissCard(card.number)) return false;
   if (!inRange(card.level, filters.levelMin, filters.levelMax)) return false;
@@ -1169,6 +1178,90 @@ function collectionRiftboundCards(url) {
   return pageCards(cards, url);
 }
 
+async function importPiltoverCollection(authorizationInput) {
+  const authorization = piltoverAuthorizationHeader(authorizationInput);
+  if (!authorization) {
+    return { ok: false, error: "Paste a Piltover Archive Authorization bearer token from a logged-in browser session." };
+  }
+
+  const variantLookup = riftboundVariantLookup(loadRiftboundDatabase());
+  const ownedByNumber = {};
+  const unmatched = [];
+  const rows = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const payload = await fetchPiltoverCollectionPage({ authorization, page });
+    const pageRows = Array.isArray(payload.data) ? payload.data : [];
+    rows.push(...pageRows);
+    totalPages = Number(payload.pagination?.totalPages || totalPages || 1);
+    if (!payload.pagination?.hasNext) break;
+    page += 1;
+  }
+
+  for (const row of rows) {
+    const variantId = String(row.variantId || "").trim();
+    const qty = Number(row.quantity || 0);
+    if (!variantId || qty <= 0) continue;
+    const card = variantLookup.get(variantId);
+    if (!card) {
+      if (unmatched.length < 30) unmatched.push({ variantId, qty });
+      continue;
+    }
+    ownedByNumber[card.number] = Number(ownedByNumber[card.number] || 0) + qty;
+  }
+
+  const collection = setOwnedQuantities(ownedByNumber);
+  return {
+    ok: true,
+    collection,
+    rows: rows.length,
+    importedUnique: Object.keys(ownedByNumber).length,
+    importedCards: Object.values(ownedByNumber).reduce((sum, qty) => sum + Number(qty || 0), 0),
+    unmatchedCount: rows.filter((row) => row.variantId && !variantLookup.has(String(row.variantId))).length,
+    unmatched,
+  };
+}
+
+function piltoverAuthorizationHeader(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const headerMatch = text.match(/authorization\s*:\s*(bearer\s+[^\r\n]+)/i);
+  if (headerMatch) return headerMatch[1].trim();
+  if (/^bearer\s+/i.test(text)) return text;
+  if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(text)) return `Bearer ${text}`;
+  return "";
+}
+
+async function fetchPiltoverCollectionPage({ authorization, page }) {
+  const url = `https://piltoverarchive.com/api/external/v1/collection?page=${page}&limit=500`;
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      authorization,
+      referer: "https://piltoverarchive.com/collection",
+      "user-agent": "Deckmanager/0.4",
+    },
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("Piltover rejected the token. Make sure you are logged into Piltover Archive and copy a fresh Authorization bearer token.");
+  }
+  if (!response.ok) throw new Error(`Piltover collection import failed: HTTP ${response.status}.`);
+  return response.json();
+}
+
+function riftboundVariantLookup(cards) {
+  const lookup = new Map();
+  for (const card of cards) {
+    for (const key of [card.variantId, card.id]) {
+      const text = String(key || "").trim();
+      if (text) lookup.set(text, card);
+    }
+  }
+  return lookup;
+}
+
 function collectionUnionArenaCards(url, locale = "en") {
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
   const cardSet = String(url.searchParams.get("cardSet") || url.searchParams.get("title") || "").trim();
@@ -1229,6 +1322,10 @@ function collectionFilters(url) {
   return {
     type: String(url.searchParams.get("type") || "").trim().toLowerCase(),
     color: String(url.searchParams.get("color") || "").trim().toLowerCase(),
+    supertype: String(url.searchParams.get("supertype") || "").trim().toLowerCase(),
+    variant: String(url.searchParams.get("variant") || "").trim().toLowerCase(),
+    rarity: String(url.searchParams.get("rarity") || "").trim().toLowerCase(),
+    domain: String(url.searchParams.get("domain") || "").trim().toLowerCase(),
     trigger: String(url.searchParams.get("trigger") || "").trim().toLowerCase(),
     levelMin: numberParam(url, "levelMin"),
     levelMax: numberParam(url, "levelMax"),
@@ -1236,6 +1333,16 @@ function collectionFilters(url) {
     costMax: numberParam(url, "costMax"),
     powerMin: numberParam(url, "powerMin"),
     powerMax: numberParam(url, "powerMax"),
+    hpMin: numberParam(url, "hpMin"),
+    hpMax: numberParam(url, "hpMax"),
+    artsMin: numberParam(url, "artsMin"),
+    artsMax: numberParam(url, "artsMax"),
+    apMin: numberParam(url, "apMin"),
+    apMax: numberParam(url, "apMax"),
+    energyGenMin: numberParam(url, "energyGenMin"),
+    energyGenMax: numberParam(url, "energyGenMax"),
+    mightMin: numberParam(url, "mightMin"),
+    mightMax: numberParam(url, "mightMax"),
     soulMin: numberParam(url, "soulMin"),
     soulMax: numberParam(url, "soulMax"),
     hideAlt: url.searchParams.get("hideAlt") === "1",
@@ -1243,30 +1350,103 @@ function collectionFilters(url) {
 }
 
 function matchesHololiveFilters(card, filters) {
-  if (filters.type && !String(card.cardType || "").toLowerCase().includes(filters.type)) return false;
+  if (filters.type && !matchesHololiveType(card, filters.type)) return false;
   if (filters.color && String(card.color || "").toLowerCase() !== filters.color) return false;
+  if (filters.rarity && String(card.rarity || "").toLowerCase() !== filters.rarity) return false;
+  if (filters.hideAlt && isHololiveAltArt(card)) return false;
   if (!inRange(card.bloomLevel, filters.levelMin, filters.levelMax, hololiveBloomValue)) return false;
+  if (!inRange(card.hp, filters.hpMin, filters.hpMax)) return false;
+  if (!inRange(maxHololiveArtsDamage(card), filters.artsMin, filters.artsMax)) return false;
   return true;
 }
 
 function matchesRiftboundFilters(card, filters) {
   if (filters.type && !String(card.cardType || "").toLowerCase().includes(filters.type)) return false;
-  if (filters.color && !String(card.color || "").toLowerCase().split(/\s*\/\s*/).includes(filters.color)) return false;
+  if (filters.color && !riftboundDomains(card).includes(filters.color)) return false;
+  if (filters.domain && !riftboundDomains(card).includes(filters.domain)) return false;
+  if (filters.supertype && !String(card.supertype || "").toLowerCase().includes(filters.supertype)) return false;
+  if (filters.variant && !riftboundVariantText(card).includes(filters.variant)) return false;
+  if (filters.rarity && String(card.rarity || "").toLowerCase() !== filters.rarity) return false;
+  if (filters.hideAlt && isRiftboundAltArt(card)) return false;
   if (!inRange(card.energy, filters.levelMin, filters.levelMax)) return false;
   if (!inRange(card.energy, filters.costMin, filters.costMax)) return false;
   if (!inRange(card.power, filters.powerMin, filters.powerMax)) return false;
+  if (!inRange(card.might, filters.mightMin, filters.mightMax)) return false;
   return true;
 }
 
 function matchesUnionArenaFilters(card, filters) {
   if (filters.type && !String(card.cardType || "").toLowerCase().includes(filters.type)) return false;
   if (filters.color && String(card.color || "").toLowerCase() !== filters.color) return false;
+  if (filters.rarity && String(card.rarity || "").toLowerCase() !== filters.rarity) return false;
   if (filters.trigger && !String(card.trigger || "").toLowerCase().includes(filters.trigger)) return false;
   if (filters.hideAlt && card.isAlternate) return false;
   if (!inRange(card.energyCost || card.cost, filters.levelMin, filters.levelMax)) return false;
   if (!inRange(card.energyCost || card.cost, filters.costMin, filters.costMax)) return false;
   if (!inRange(card.power || card.bp, filters.powerMin, filters.powerMax)) return false;
+  if (!inRange(card.apCost || card.ap || card.actionPointCost, filters.apMin, filters.apMax)) return false;
+  if (!inRange(card.energyGeneration || card.generatedEnergy || card.energyGen, filters.energyGenMin, filters.energyGenMax)) return false;
   return true;
+}
+
+function matchesHololiveType(card, type) {
+  const cardType = String(card.cardType || "").toLowerCase();
+  if (type === "support") return cardType.includes("support") || cardType.includes("サポート");
+  if (type === "cheer") return cardType.includes("cheer") || cardType.includes("エール");
+  if (type === "holomem") return cardType === "holomem" || cardType === "2nd holomem" || cardType === "1st holomem" || cardType === "debut holomem";
+  return cardType.includes(type);
+}
+
+function isHololiveAltArt(card) {
+  if (card.isAlternate) return true;
+  const text = [
+    card.rarity,
+    card.variant,
+    card.variantType,
+    card.variantLabel,
+    card.parallel,
+    card.cardSet,
+  ].join(" ").toLowerCase();
+  return /\b(alt|alternate|parallel|parallels|our|sec|osr|ur|sy|sr|s)\b/.test(text);
+}
+
+function maxHololiveArtsDamage(card) {
+  const damages = [];
+  for (const art of card.arts || []) damages.push(numericValue(art.power || art.damage || art.value));
+  const text = [card.abilityText, card.extraText, card.text, card.translatedText, card.jpText].join("\n");
+  for (const match of text.matchAll(/\b(\d{2,4})(?:\s*(?:\+|P|ダメージ|damage))?/gi)) {
+    const number = Number(match[1]);
+    if (Number.isFinite(number) && number <= 300) damages.push(number);
+  }
+  return damages.length ? Math.max(...damages) : NaN;
+}
+
+function riftboundDomains(card) {
+  return [
+    card.color,
+    card.domain,
+    card.domains,
+    card.runeType,
+  ].flatMap((value) => Array.isArray(value) ? value : String(value || "").split(/\s*(?:\/|,|\|)\s*/))
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function riftboundVariantText(card) {
+  return [
+    card.variant,
+    card.variantType,
+    card.variantLabel,
+    card.cardType,
+    card.supertype,
+    card.isAlternate ? "alternate alt" : "",
+    card.isOvernumbered ? "overnumbered" : "",
+  ].join(" ").toLowerCase();
+}
+
+function isRiftboundAltArt(card) {
+  if (card.isAlternate || card.isOvernumbered) return true;
+  return /\b(alt|alternate|overnumbered|signature)\b/.test(riftboundVariantText(card));
 }
 
 function loadHololiveCards(locale = "en") {

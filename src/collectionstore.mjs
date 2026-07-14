@@ -16,6 +16,18 @@ export function saveCollection(input) {
   return next;
 }
 
+export function setOwnedQuantities(entries) {
+  const collection = loadCollection();
+  for (const [number, qty] of Object.entries(entries || {})) {
+    const key = String(number || "").trim();
+    const count = Math.max(0, Number(qty || 0));
+    if (!key) continue;
+    if (count > 0) collection.cards[key] = count;
+    else delete collection.cards[key];
+  }
+  return saveCollection(collection);
+}
+
 export function setOwnedQuantity(number, qty) {
   const collection = loadCollection();
   const key = String(number || "").trim();

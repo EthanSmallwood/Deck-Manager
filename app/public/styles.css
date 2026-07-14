@@ -468,8 +468,13 @@ label {
   color: var(--bad);
 }
 
+[hidden],
+.filter-hidden {
+  display: none !important;
+}
+
 .modal[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .modal {
@@ -716,7 +721,7 @@ label {
 
 .collection-toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(360px, 560px) 140px minmax(360px, 1fr) auto;
+  grid-template-columns: minmax(180px, 220px) minmax(360px, 560px) minmax(420px, 1fr) auto;
   gap: 14px;
   align-items: end;
   border-bottom: 1px solid var(--line);
@@ -1089,6 +1094,25 @@ label {
 
 .builder-filter-range span {
   grid-column: 1 / -1;
+}
+
+.bloom-buttons {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.builder-filters .bloom-buttons button {
+  min-height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.builder-filters .bloom-buttons button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
 }
 
 .builder-filters button {
