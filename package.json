@@ -8,6 +8,7 @@
     "scrape:riftbound": "node scripts/scrape-riftbound-piltover-cards.mjs",
     "scrape:union-arena": "node scripts/scrape-exburst-union-arena-cards.mjs",
     "scrape:union-arena-jp": "node scripts/scrape-exburst-union-arena-cards.mjs --locale jp",
+    "scrape:love-live": "node scripts/scrape-love-live-cards.mjs",
     "render:union-arena-card": "node scripts/render-exburst-union-arena-card.mjs"
   }
 }

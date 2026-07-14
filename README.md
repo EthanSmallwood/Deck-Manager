@@ -96,6 +96,7 @@ Open `Settings` in the app to:
 - Build the Hololive JP card database.
 - Build the Riftbound card database.
 - Build the Union Arena EN and JP card databases.
+- Build the Love Live Official Card Game database from the JP official card list plus the translation sheet.
 - Import a Riftbound collection from Piltover Archive.
 - Clear generated TTS card and sheet image caches.
 - Choose the folder where exported TTS saved object JSON files are written.
@@ -119,6 +120,7 @@ Runtime data is stored locally:
 - `data/cards/union-arena-cards.json` - generated Union Arena EN card database
 - `data/cards/union-arena-jp-cards.json` - generated Union Arena JP card database
 - `data/cards/hololive-jp-cards.json` - generated Hololive JP card database
+- `data/cards/lovelive-cards.json` - generated Love Live official plus translated card database
 - `outputs/` - generated TTS exports/assets
 
 The clear cache setting removes generated image folders under `outputs/tts/` while leaving saved deck JSON and app data alone.
@@ -133,6 +135,7 @@ The card database builders can also be run from the command line:
 npm run scrape:riftbound
 npm run scrape:union-arena
 npm run scrape:union-arena-jp
+npm run scrape:love-live
 ```
 
 Union Arena JP render helpers can be run directly when debugging a single card:
